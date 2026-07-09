@@ -16,7 +16,7 @@ class ProfileController extends Controller
         // ]);   
 
         return response()->json([
-            'id' => $request->user()->id,
+            // 'id' => $request->user()->id,
             'name' => $request->user()->name,
             'email' => $request->user()->email,
             'role' => $request->user()->role,

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\CategoryController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/test', function () {
@@ -11,10 +12,21 @@ Route::get('/test', function () {
 });
 
 
+// ----------------------
+// -- ROTAS PÚBLICAS --
+// ----------------------
 // ROTAS DE AUTENTICAÇÃO
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
+// ROTAS DE CATEGORIAS
+Route::get('/categories', [CategoryController::class, 'index']);
+Route::get('/categories/{category}', [CategoryController::class, 'show']);
+
+
+// ----------------------
+// -- ROTAS PROTEGIDAS --
+// ----------------------
 Route::middleware('auth:sanctum')->group(function(){
     // ROTAS DE AUTENTICAÇÃO (NÍVEL: AUTENTICADO)
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -24,6 +36,11 @@ Route::middleware('auth:sanctum')->group(function(){
     Route::get('/profile', [ProfileController::class, 'show'] );
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
+
+    // ROTAS DE CATEGORIAS (NÍVEL: AUTENTICADO)
+    Route::post('/categories', [CategoryController::class, 'store']);
+    Route::put('/categories/{category}', [CategoryController::class, 'update']);
+    Route::delete('/categories/{category}', [CategoryController::class, 'destroy']);
 });
 
 
