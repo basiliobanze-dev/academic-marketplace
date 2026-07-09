@@ -23,8 +23,12 @@ class UpdateCategoryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:100|unique:categories,name,' . $this->category->id,
-            'description' => 'nullable|string'
+            'category_id' => 'required|exists:categories,id',
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'price' => 'nullable|numeric|min:0',
+            'transaction_type' => 'required|in:sale,exchange',
+            'status' => 'required|in:available,sold,exchanged',
         ];
     }
 }

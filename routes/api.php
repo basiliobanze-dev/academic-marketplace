@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\ListingController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/test', function () {
@@ -23,6 +24,11 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/categories/{category}', [CategoryController::class, 'show']);
 
+// ROTAS DE ANÚNCIOS
+Route::get('/listings', [ListingController::class, 'index']);
+Route::get('/listings/{listing}', [ListingController::class, 'show']);
+
+
 
 // ----------------------
 // -- ROTAS PROTEGIDAS --
@@ -41,6 +47,11 @@ Route::middleware('auth:sanctum')->group(function(){
     Route::post('/categories', [CategoryController::class, 'store']);
     Route::put('/categories/{category}', [CategoryController::class, 'update']);
     Route::delete('/categories/{category}', [CategoryController::class, 'destroy']);
+
+    // ROTAS DE ANÚNCIOS (NÍVEL: AUTENTICADO)
+    Route::post('/listings', [ListingController::class, 'store']);
+    Route::put('/listings/{listing}', [ListingController::class, 'update']);
+    Route::delete('/listings/{listing}', [ListingController::class, 'destroy']);
 });
 
 
