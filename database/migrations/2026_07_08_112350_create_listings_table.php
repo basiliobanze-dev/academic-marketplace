@@ -20,8 +20,8 @@ return new class extends Migration
             $table->string('title');
             $table->text("description");
             $table->decimal('price', 10, 2)->nullable();
-            $table->enum('transaction_type', ['sale', 'exchanged']);
-            $table->enum('status', ['available', sold, 'exchanged']);
+            $table->enum('transaction_type', ['sale', 'exchange']);
+            $table->enum('status', ['available', 'sold', 'exchanged'])->default('available');
             $table->timestamps();
         });
     }
