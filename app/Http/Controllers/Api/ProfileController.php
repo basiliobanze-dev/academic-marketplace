@@ -11,16 +11,16 @@ use Illuminate\Support\Facades\Hash;
 class ProfileController extends Controller
 {
     public function show(Request $request){
-        // return response()->json([
-        //     'user' => $request->user()
-        // ]);   
-
         return response()->json([
-            // 'id' => $request->user()->id,
-            'name' => $request->user()->name,
-            'email' => $request->user()->email,
-            'role' => $request->user()->role,
-        ]);
+            'user' => $request->user()
+        ]);   
+
+        // return response()->json([
+        //     // 'id' => $request->user()->id,
+        //     'name' => $request->user()->name,
+        //     'email' => $request->user()->email,
+        //     'role' => $request->user()->role,
+        // ]);
     }
 
     public function update(UpdateProfileRequest $request){

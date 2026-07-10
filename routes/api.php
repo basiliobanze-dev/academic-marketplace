@@ -76,6 +76,11 @@ Route::middleware('auth:sanctum')->group(function(){
     Route::get('/reports/{report}', [ReportController::class, 'show']);
     Route::put('/reports/{report}', [ReportController::class, 'update']);
     Route::delete('/reports/{report}', [ReportController::class, 'destroy']);
+
+    // ROSTAS DE NOTIFICAÇÕES
+    Route::apiResource('notifications', UserNotificationController::class)->only(['index', 'show', 'destroy']);
+    Route::patch('notifications/{notification}/read',[UserNotificationController::class, 'markAsRead']);
+    Route::patch('notifications/read-all',[UserNotificationController::class, 'markAllAsRead']);
 });
 
 
