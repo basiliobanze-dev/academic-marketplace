@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ListingController;
 use App\Http\Controllers\Api\MessageController;
+use App\Http\Controllers\Api\ReviewController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/test', function () {
@@ -14,9 +15,9 @@ Route::get('/test', function () {
 });
 
 
-// ----------------------
+// --------------------
 // -- ROTAS PÚBLICAS --
-// ----------------------
+// --------------------
 // ROTAS DE AUTENTICAÇÃO
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -31,9 +32,9 @@ Route::get('/listings/{listing}', [ListingController::class, 'show']);
 
 
 
-// ----------------------
-// -- ROTAS PROTEGIDAS --
-// ----------------------
+// -------------------------------------------
+// -- ROTAS PROTEGIDAS (NÍVEL: AUTENTICADO) --
+// -------------------------------------------
 Route::middleware('auth:sanctum')->group(function(){
     // ROTAS DE AUTENTICAÇÃO (NÍVEL: AUTENTICADO)
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -44,20 +45,28 @@ Route::middleware('auth:sanctum')->group(function(){
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
 
-    // ROTAS DE CATEGORIAS (NÍVEL: AUTENTICADO)
+    // ROTAS DE CATEGORIAS
     Route::post('/categories', [CategoryController::class, 'store']);
     Route::put('/categories/{category}', [CategoryController::class, 'update']);
     Route::delete('/categories/{category}', [CategoryController::class, 'destroy']);
 
-    // ROTAS DE ANÚNCIOS (NÍVEL: AUTENTICADO)
+    // ROTAS DE ANÚNCIOS
     Route::post('/listings', [ListingController::class, 'store']);
     Route::put('/listings/{listing}', [ListingController::class, 'update']);
     Route::delete('/listings/{listing}', [ListingController::class, 'destroy']);
 
-    // ROTAS DE MENSAGENS (NÍVEL: AUTENTICADO)
+    // ROTAS DE MENSAGENS
     Route::get('/messages', [MessageController::class, 'index']);
     Route::post('/messages', [MessageController::class, 'store']);
     Route::get('/messages/{user}', [MessageController::class, 'conversation']);
+
+    // ROTA DE AVALIAÇÕES
+    // Route::apiResource('reviews', ReviewController::class);
+    Route::get('/reviews', [ReviewController::class, 'index']);
+    Route::post('/reviews', [ReviewController::class, 'store']);
+    Route::get('/reviews/{review}', [ReviewController::class, 'show']);
+    Route::put('/reviews/{review}', [ReviewController::class, 'update']);
+    Route::delete('/reviews/{review}', [ReviewController::class, 'destroy']);
 });
 
 
