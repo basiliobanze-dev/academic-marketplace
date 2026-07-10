@@ -1,13 +1,13 @@
 <?php
 
 namespace App\Http\Controllers\Api;
+
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Requests\StoreListingRequest;
 use App\Http\Requests\UpdateListingRequest;
+use App\Http\Resources\ListingResource;
 use App\Models\Listing;
-use App\Http\Controllers\Api\category;
-
 
 class ListingController extends Controller
 {
@@ -33,7 +33,7 @@ class ListingController extends Controller
         $listings = $query
             ->latest()
             ->paginate(10);
-        return response()->json($listings);
+        return ListingResource::collection($listings);
     }
 
     /**
@@ -53,7 +53,7 @@ class ListingController extends Controller
 
         return response()->json([
             'message' => 'Listing created successfully.',
-            'listing' => $listing
+            'listing' => new ListingResource($listing)
         ], 201);
     }
 
@@ -63,7 +63,7 @@ class ListingController extends Controller
     public function show(Listing $listing)
     {
         $listing->load(['user', 'category']);
-        return response()->json($listing);
+        return new ListingResource($listing);
     }
 
     /**
@@ -81,7 +81,7 @@ class ListingController extends Controller
 
         return response()->json([
             'message' => 'Listing updated successfully.',
-            'listing' => $listing
+            'listing' => new ListingResource($listing)
         ]);
     }
 

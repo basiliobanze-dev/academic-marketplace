@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Http\Requests\StoreCategoryRequest;
 use App\Http\Requests\UpdateCategoryRequest;
+use App\Http\Resources\CategoryResource;
 use App\Models\Category;
+use Illuminate\Http\Request;
 
 class CategoryController extends Controller
 {
@@ -15,7 +16,7 @@ class CategoryController extends Controller
      */
     public function index()
     {
-        return response()->json(Category::orderBy('name')->get());
+        return CategoryResource::collection(Category::orderBy('name')->get());
     }
 
     /**
@@ -27,7 +28,7 @@ class CategoryController extends Controller
 
         return response()->json([
             'message' => 'Category created successfully.',
-            'category' => $category
+            'category' => new CategoryResource($category)
         ], 201);
     }
 
@@ -36,7 +37,7 @@ class CategoryController extends Controller
      */
     public function show(Category $category)
     {
-        return response()->json($category);
+        return new CategoryResource($category);
     }
 
     /**
@@ -47,8 +48,8 @@ class CategoryController extends Controller
         $category->update($request->validated());
 
         return response()->json([
-            'message'=>'Category updated successfully.',
-            'category'=>$category
+            'message' => 'Category updated successfully.',
+            'category' => new CategoryResource($category)
         ]);
     }
 

@@ -30,7 +30,7 @@ class UserNotificationController extends Controller
             abort(403);
         }
 
-        return response()->json($notification);
+        return new UserNotificationResource($notification);
     }
 
     public function markAsRead(Request $request, UserNotification $notification): JsonResponse
@@ -45,7 +45,7 @@ class UserNotificationController extends Controller
 
         return response()->json([
             'message' => 'Notification marked as read.',
-            'notification' => $notification
+            'notification' => new UserNotificationResource($notification)
         ]);
     }
 

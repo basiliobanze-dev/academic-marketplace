@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreReviewRequest;
 use App\Http\Requests\UpdateReviewRequest;
+use App\Http\Resources\ReviewResource;
 use App\Models\Review;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,13 +15,15 @@ class ReviewController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(): JsonResponse
     {
+        $reviews = Review::with([
+            'reviewer',
+            'reviewedUser'
+        ])->latest()->get();
+
         return response()->json(
-            Review::with([
-                'reviewer',
-                'reviewedUser'
-            ])->latest()->get()
+            ReviewResource::collection($reviews)
         );
     }
 
@@ -38,7 +41,7 @@ class ReviewController extends Controller
 
         return response()->json([
             'message' => 'Review created successfully.',
-            'review' => $review
+            'review' => new ReviewResource($review)
         ], 201);
     }
 
@@ -47,11 +50,13 @@ class ReviewController extends Controller
      */
     public function show(Review $review): JsonResponse
     {
+        $review->load([
+            'reviewer',
+            'reviewedUser'
+        ]);
+
         return response()->json(
-            $review->load([
-                'reviewer',
-                'reviewedUser'
-            ])
+            new ReviewResource($review)
         );
     }
 
@@ -70,7 +75,7 @@ class ReviewController extends Controller
 
         return response()->json([
             'message' => 'Review updated successfully.',
-            'review' => $review
+            'review' => new ReviewResource($review),
         ]);
     }
 

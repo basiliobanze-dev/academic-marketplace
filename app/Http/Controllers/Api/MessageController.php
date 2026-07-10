@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMessageRequest;
+use App\Http\Resources\MessageResource;
 use App\Models\Message;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -20,7 +21,7 @@ class MessageController extends Controller
             ->latest()
             ->get();
 
-        return response()->json($messages);
+        return response()->json(MessageResource::collection($messages));
     }
 
     /**
@@ -36,7 +37,7 @@ class MessageController extends Controller
 
         return response()->json([
             'message' => 'Message sent successfully.',
-            'data' => $message
+            'data' => new MessageResource($message)
         ], 201);
     }
 
@@ -51,31 +52,6 @@ class MessageController extends Controller
             })
             ->orderBy('created_at')
             ->get();
-
-        return response()->json($messages);
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+         return response()->json(MessageResource::collection($messages));
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreReportRequest;
 use App\Http\Requests\UpdateReportRequest;
+use App\Http\Resources\ReportResource;
 use App\Models\Report;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,9 @@ class ReportController extends Controller
             'reportedUser'
         ])->latest()->get();
 
-        return response()->json($reports);
+        return response()->json(
+            ReportResource::collection($reports)
+        );
     }
 
     /**
@@ -38,9 +41,16 @@ class ReportController extends Controller
             'status' => 'pending',
         ]);
 
+        $report->load([
+            'reporter',
+            'listing.user',
+            'listing.category',
+            'reportedUser'
+        ]);
+
         return response()->json([
             'message' => 'Report submitted successfully.',
-            'report' => $report,
+            'report' => new ReportResource($report),
         ], 201);
     }
 
@@ -49,12 +59,15 @@ class ReportController extends Controller
      */
     public function show(Report $report): JsonResponse
     {
+        $report->load([
+            'reporter',
+            'listing.user',
+            'listing.category',
+            'reportedUser'
+        ]);
+
         return response()->json(
-            $report->load([
-                'reporter',
-                'listing',
-                'reportedUser'
-            ])
+            new ReportResource($report)
         );
     }
 
@@ -73,9 +86,16 @@ class ReportController extends Controller
 
         $report->update($request->validated());
 
+        $report->load([
+            'reporter',
+            'listing.user',
+            'listing.category',
+            'reportedUser'
+        ]);
+
         return response()->json([
             'message' => 'Report updated successfully.',
-            'report' => $report
+            'report' => new ReportResource($report),
         ]);
     }
 

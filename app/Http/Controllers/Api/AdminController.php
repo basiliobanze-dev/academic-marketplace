@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Listing;
 use App\Models\Report;
+use App\Http\Resources\UserResource;
+use App\Http\Resources\ListingResource;
+use App\Http\Resources\ReportResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -28,9 +31,9 @@ class AdminController extends Controller
     /**
      * Listar utilizadores.
      */
-    public function users(Request $request): JsonResponse
+    public function users(Request $request)
     {
-        return response()->json(
+        return UserResource::collection(
             User::latest()->get()
         );
     }
@@ -50,10 +53,10 @@ class AdminController extends Controller
     /**
      * Listar anúncios.
      */
-    public function listings(Request $request): JsonResponse
+    public function listings(Request $request)
     {
-        return response()->json(
-            Listing::with('user', 'category')
+        return ListingResource::collection(
+            Listing::with(['user', 'category'])
                 ->latest()
                 ->get()
         );
@@ -74,14 +77,17 @@ class AdminController extends Controller
     /**
      * Listar denúncias.
      */
-    public function reports(Request $request): JsonResponse
+    public function reports(Request $request)
     {
-        return response()->json(
+        return ReportResource::collection(
             Report::with([
                 'reporter',
-                'listing',
+                'listing.user',
+                'listing.category',
                 'reportedUser'
-            ])->latest()->get()
+            ])
+            ->latest()
+            ->get()
         );
     }
 
@@ -90,13 +96,18 @@ class AdminController extends Controller
      */
     public function resolveReport(Request $request, Report $report): JsonResponse
     {
-        $report->update([
-            'status' => 'resolved'
+        $report->update(['status' => 'resolved']);
+
+        $report->load([
+            'reporter',
+            'listing.user',
+            'listing.category',
+            'reportedUser'
         ]);
 
         return response()->json([
             'message' => 'Report resolved successfully.',
-            'report' => $report
+            'report' => new ReportResource($report)
         ]);
     }
 }

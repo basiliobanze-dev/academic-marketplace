@@ -5,22 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateProfileRequest;
 use App\Http\Requests\UpdatePasswordRequest;
+use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class ProfileController extends Controller
 {
     public function show(Request $request){
-        return response()->json([
-            'user' => $request->user()
-        ]);   
-
-        // return response()->json([
-        //     // 'id' => $request->user()->id,
-        //     'name' => $request->user()->name,
-        //     'email' => $request->user()->email,
-        //     'role' => $request->user()->role,
-        // ]);
+         return new UserResource($request->user());
     }
 
     public function update(UpdateProfileRequest $request){
@@ -32,7 +24,7 @@ class ProfileController extends Controller
 
         return response()->json([
             'message' => 'Profile updated successfuly.',
-            'user' => $user
+            'user' => new UserResource($user),
         ]);
     }
 

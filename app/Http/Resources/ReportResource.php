@@ -14,6 +14,15 @@ class ReportResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return parent::toArray($request);
+        return [
+            'id' => $this->id,
+            'reason' => $this->reason,
+            'status' => $this->status,
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
+            'reporter' => new UserResource($this->whenLoaded('reporter')),
+            'listing' => new ListingResource($this->whenLoaded('listing')),
+            'reported_user' => new UserResource($this->whenLoaded('reportedUser')),
+        ];
     }
 }
