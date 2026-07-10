@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ListingController;
 use App\Http\Controllers\Api\MessageController;
 use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\ReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/test', function () {
@@ -60,13 +61,21 @@ Route::middleware('auth:sanctum')->group(function(){
     Route::post('/messages', [MessageController::class, 'store']);
     Route::get('/messages/{user}', [MessageController::class, 'conversation']);
 
-    // ROTA DE AVALIAÇÕES
+    // ROTAS DE AVALIAÇÕES
     // Route::apiResource('reviews', ReviewController::class);
     Route::get('/reviews', [ReviewController::class, 'index']);
     Route::post('/reviews', [ReviewController::class, 'store']);
     Route::get('/reviews/{review}', [ReviewController::class, 'show']);
     Route::put('/reviews/{review}', [ReviewController::class, 'update']);
     Route::delete('/reviews/{review}', [ReviewController::class, 'destroy']);
+
+    // ROTAS DE DENÚNCIAS
+    // Route::apiResource('reports', ReportController::class);
+    Route::get('/reports', [ReportController::class, 'index']);
+    Route::post('/reports', [ReportController::class, 'store']);
+    Route::get('/reports/{report}', [ReportController::class, 'show']);
+    Route::put('/reports/{report}', [ReportController::class, 'update']);
+    Route::delete('/reports/{report}', [ReportController::class, 'destroy']);
 });
 
 
