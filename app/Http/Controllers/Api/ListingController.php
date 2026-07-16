@@ -26,6 +26,10 @@ class ListingController extends Controller
             $query->where('category_id', $request->category);
         }
 
+        if ($request->filled('transaction_type')) {
+            $query->where('transaction_type', $request->transaction_type);
+        }
+
         if ($request->filled('status')){
             $query->where('status', $request->status);
         }
@@ -101,5 +105,15 @@ class ListingController extends Controller
         return response()->json([
             'message' => 'Listing deleted successfully.'
         ]);
+    }
+
+    public function myListings(Request $request)
+    {
+        $listings = Listing::with(['user', 'category'])
+            ->where('user_id', $request->user()->id)
+            ->latest()
+            ->paginate(10);
+
+        return ListingResource::collection($listings);
     }
 }

@@ -18,7 +18,6 @@ Route::get('/test', function () {
     ]);
 });
 
-
 // AUTHENTICATION
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -49,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // LISTINGS
     Route::post('/listings', [ListingController::class, 'store']);
+    Route::get('/my-listings', [ListingController::class, 'myListings']);
     Route::put('/listings/{listing}', [ListingController::class, 'update']);
     Route::delete('/listings/{listing}', [ListingController::class, 'destroy']);
 

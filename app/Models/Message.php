@@ -8,20 +8,27 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Message extends Model
 {
-    use HasFactory;
-
-    protected $fillable=[
+    protected $fillable = [
         'sender_id',
         'receiver_id',
         'message',
-        'is_read'
+        'is_read',
     ];
 
-    public function sender(): BelongsTo{
+    protected function casts(): array
+    {
+        return [
+            'is_read' => 'boolean',
+        ];
+    }
+
+    public function sender(): BelongsTo
+    {
         return $this->belongsTo(User::class, 'sender_id');
     }
 
-    public function receiver(): BelongsTo{
+    public function receiver(): BelongsTo
+    {
         return $this->belongsTo(User::class, 'receiver_id');
     }
 }
