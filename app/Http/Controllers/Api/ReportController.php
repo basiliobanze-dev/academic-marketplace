@@ -33,11 +33,13 @@ class ReportController extends Controller
      */
     public function store(StoreReportRequest $request): JsonResponse
     {
+        $validated = $request->validated();
+
         $report = Report::create([
             'reporter_id' => $request->user()->id,
-            'listing_id' => $request->listing_id,
-            'reported_user_id' => $request->reported_user_id,
-            'reason' => $request->reason,
+            'listing_id' => $validated['listing_id'] ?? null,
+            'reported_user_id' => $validated['reported_user_id'] ?? null,
+            'reason' => $validated['reason'],
             'status' => 'pending',
         ]);
 
@@ -45,11 +47,11 @@ class ReportController extends Controller
             'reporter',
             'listing.user',
             'listing.category',
-            'reportedUser'
+            'reportedUser',
         ]);
 
         return response()->json([
-            'message' => 'Report submitted successfully.',
+            'message' => 'Denúncia submetida com sucesso.',
             'report' => new ReportResource($report),
         ], 201);
     }

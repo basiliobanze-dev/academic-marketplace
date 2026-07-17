@@ -2,8 +2,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { BookOpen, User } from 'lucide-react';
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { ReactNode } from 'react';
+import { type SharedData } from '@/types';
 
 export interface Listing {
     id: number;
@@ -61,6 +62,9 @@ function getStatusLabel(status: Listing['status']) {
 }
 
 export default function ListingCard({ listing, actions }: ListingCardProps) {
+    const { auth } = usePage<SharedData>().props;
+    const isAdmin = auth.user?.role === 'admin';
+
     const description =
         listing.description.length > 130
             ? `${listing.description.substring(0, 130)}...`
@@ -115,11 +119,13 @@ export default function ListingCard({ listing, actions }: ListingCardProps) {
             </CardContent>
 
             <CardFooter className="flex flex-col gap-2">
-                <Button className="w-full" variant="outline" asChild>
-                    <Link href={`/listings/${listing.id}`}>
-                        Ver detalhes
-                    </Link>
-                </Button>
+                {!isAdmin && (
+                    <Button className="w-full" variant="outline" asChild>
+                        <Link href={`/listings/${listing.id}`}>
+                            Ver detalhes
+                        </Link>
+                    </Button>
+                )}
 
                 {actions && <div className="flex w-full gap-2">{actions}</div>}
             </CardFooter>

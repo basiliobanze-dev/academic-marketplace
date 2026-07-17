@@ -1,28 +1,65 @@
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import api from '@/lib/api';
 import StudentLayout from '@/layouts/student-layout';
+import api from '@/lib/api';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { AxiosError } from 'axios';
-import { LoaderCircle } from 'lucide-react';
-import { FormEvent, useEffect, useState } from 'react';
+import {
+    ArrowLeft,
+    CircleDollarSign,
+    FileText,
+    LoaderCircle,
+    PackagePlus,
+    RefreshCcw,
+    Save,
+    Tag,
+} from 'lucide-react';
+import {
+    type FormEvent,
+    useEffect,
+    useMemo,
+    useState,
+} from 'react';
 
 interface Category {
     id: number;
     name: string;
+    description?: string | null;
+}
+
+interface CategoriesResponse {
+    data: Category[];
 }
 
 interface ValidationErrors {
-    [key: string]: string[];
+    category_id?: string[];
+    title?: string[];
+    description?: string[];
+    price?: string[];
+    transaction_type?: string[];
+}
+
+interface ErrorResponse {
+    message?: string;
+    errors?: ValidationErrors;
+}
+
+interface ListingForm {
+    category_id: string;
+    title: string;
+    description: string;
+    price: string;
+    transaction_type: 'sale' | 'exchange';
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Painel principal',
+        title: 'Dashboard',
         href: '/dashboard',
+    },
+    {
+        title: 'Meus anúncios',
+        href: '/my-listings',
     },
     {
         title: 'Publicar anúncio',
@@ -30,37 +67,61 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+const initialForm: ListingForm = {
+    category_id: '',
+    title: '',
+    description: '',
+    price: '',
+    transaction_type: 'sale',
+};
+
 export default function CreateListing() {
+    const [form, setForm] = useState<ListingForm>(initialForm);
     const [categories, setCategories] = useState<Category[]>([]);
-    const [loadingCategories, setLoadingCategories] = useState(true);
-    const [submitting, setSubmitting] = useState(false);
     const [errors, setErrors] = useState<ValidationErrors>({});
     const [generalError, setGeneralError] = useState('');
+    const [loadingCategories, setLoadingCategories] =
+        useState(true);
+    const [submitting, setSubmitting] = useState(false);
 
-    const [form, setForm] = useState({
-        category_id: '',
-        title: '',
-        description: '',
-        price: '',
-        transaction_type: 'sale',
-    });
+    const titleCharacters = form.title.length;
+    const descriptionCharacters = form.description.length;
+
+    const selectedCategory = useMemo(
+        () =>
+            categories.find(
+                (category) =>
+                    category.id === Number(form.category_id),
+            ),
+        [categories, form.category_id],
+    );
 
     useEffect(() => {
-        async function loadCategories() {
-            try {
-                const response = await api.get('/api/categories');
-                setCategories(response.data.data ?? []);
-            } catch {
-                setGeneralError('Não foi possível carregar as categorias.');
-            } finally {
-                setLoadingCategories(false);
-            }
-        }
-
         void loadCategories();
     }, []);
 
-    function updateField(field: keyof typeof form, value: string) {
+    async function loadCategories() {
+        try {
+            setLoadingCategories(true);
+            setGeneralError('');
+
+            const response =
+                await api.get<CategoriesResponse>('/api/categories');
+
+            setCategories(response.data.data ?? []);
+        } catch {
+            setGeneralError(
+                'Não foi possível carregar as categorias.',
+            );
+        } finally {
+            setLoadingCategories(false);
+        }
+    }
+
+    function updateField<K extends keyof ListingForm>(
+        field: K,
+        value: ListingForm[K],
+    ) {
         setForm((current) => ({
             ...current,
             [field]: value,
@@ -68,48 +129,150 @@ export default function CreateListing() {
 
         setErrors((current) => ({
             ...current,
-            [field]: [],
+            [field]: undefined,
+        }));
+
+        setGeneralError('');
+    }
+
+    function changeTransactionType(
+        transactionType: 'sale' | 'exchange',
+    ) {
+        setForm((current) => ({
+            ...current,
+            transaction_type: transactionType,
+            price:
+                transactionType === 'exchange'
+                    ? ''
+                    : current.price,
+        }));
+
+        setErrors((current) => ({
+            ...current,
+            transaction_type: undefined,
+            price: undefined,
         }));
     }
 
-    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    function validateForm(): boolean {
+        const newErrors: ValidationErrors = {};
+
+        if (!form.category_id) {
+            newErrors.category_id = [
+                'Seleccione uma categoria.',
+            ];
+        }
+
+        if (!form.title.trim()) {
+            newErrors.title = [
+                'Informe o título do anúncio.',
+            ];
+        } else if (form.title.trim().length > 255) {
+            newErrors.title = [
+                'O título não pode exceder 255 caracteres.',
+            ];
+        }
+
+        if (!form.description.trim()) {
+            newErrors.description = [
+                'Informe a descrição do material.',
+            ];
+        }
+
+        if (
+            form.transaction_type === 'sale' &&
+            form.price.trim() === ''
+        ) {
+            newErrors.price = [
+                'Informe o preço do material.',
+            ];
+        }
+
+        if (
+            form.transaction_type === 'sale' &&
+            form.price !== '' &&
+            Number(form.price) < 0
+        ) {
+            newErrors.price = [
+                'O preço não pode ser negativo.',
+            ];
+        }
+
+        setErrors(newErrors);
+
+        return Object.keys(newErrors).length === 0;
+    }
+
+    async function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
-        setSubmitting(true);
-        setErrors({});
-        setGeneralError('');
+        if (!validateForm()) {
+            return;
+        }
 
         try {
+            setSubmitting(true);
+            setErrors({});
+            setGeneralError('');
+
             await api.get('/sanctum/csrf-cookie');
 
             await api.post('/api/listings', {
                 category_id: Number(form.category_id),
-                title: form.title,
-                description: form.description,
-                price: form.price === '' ? null : Number(form.price),
+                title: form.title.trim(),
+                description: form.description.trim(),
                 transaction_type: form.transaction_type,
+                price:
+                    form.transaction_type === 'sale'
+                        ? Number(form.price)
+                        : null,
             });
 
             router.visit('/my-listings');
-        } catch (error) {
-            const requestError = error as AxiosError<{
-                message?: string;
-                errors?: ValidationErrors;
-            }>;
+        } catch (requestError) {
+            const error =
+                requestError as AxiosError<ErrorResponse>;
 
-            if (requestError.response?.status === 422) {
-                setErrors(requestError.response.data.errors ?? {});
-            } else if (requestError.response?.status === 401) {
+            if (error.response?.status === 401) {
                 router.visit('/login');
-            } else {
-                setGeneralError(
-                    requestError.response?.data.message ??
-                        'Não foi possível publicar o anúncio.',
-                );
+                return;
             }
+
+            if (error.response?.status === 403) {
+                setGeneralError(
+                    'Não possui autorização para publicar anúncios.',
+                );
+                return;
+            }
+
+            if (error.response?.status === 422) {
+                setErrors(error.response.data.errors ?? {});
+
+                setGeneralError(
+                    error.response.data.message ??
+                        'Verifique os dados introduzidos.',
+                );
+
+                return;
+            }
+
+            setGeneralError(
+                error.response?.data.message ??
+                    'Não foi possível publicar o anúncio.',
+            );
         } finally {
             setSubmitting(false);
         }
+    }
+
+    function resetForm() {
+        setForm(initialForm);
+        setErrors({});
+        setGeneralError('');
+    }
+
+    function firstError(field: keyof ValidationErrors) {
+        return errors[field]?.[0];
     }
 
     return (
@@ -117,189 +280,444 @@ export default function CreateListing() {
             <Head title="Publicar anúncio" />
 
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
-                <div>
-                    <h1 className="text-2xl font-bold">Publicar anúncio</h1>
+                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                    <div>
+                        <h1 className="text-2xl font-bold">
+                            Publicar anúncio
+                        </h1>
 
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Preencha os dados do material que pretende vender ou
-                        trocar.
-                    </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Preencha os dados do material académico que
+                            pretende vender ou trocar.
+                        </p>
+                    </div>
+
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() =>
+                            router.visit('/my-listings')
+                        }
+                    >
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Voltar
+                    </Button>
                 </div>
 
-                <Card className="max-w-3xl">
-                    <CardHeader>
-                        <CardTitle>Dados do material</CardTitle>
-                    </CardHeader>
+                {generalError && (
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                        {generalError}
+                    </div>
+                )}
 
-                    <CardContent>
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            {generalError && (
-                                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                                    {generalError}
+                <form
+                    onSubmit={submit}
+                    className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]"
+                >
+                    <div className="space-y-6">
+                        <section className="rounded-xl border bg-card p-5 md:p-6">
+                            <div className="mb-5 flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                    <FileText className="h-5 w-5" />
                                 </div>
-                            )}
 
-                            <div className="space-y-2">
-                                <Label htmlFor="title">Título</Label>
+                                <div>
+                                    <h2 className="font-semibold">
+                                        Informações do material
+                                    </h2>
 
-                                <Input
-                                    id="title"
-                                    value={form.title}
-                                    onChange={(event) =>
-                                        updateField('title', event.target.value)
-                                    }
-                                    placeholder="Ex.: Livro de Programação em Java"
-                                />
-
-                                {errors.title?.[0] && (
-                                    <p className="text-sm text-destructive">
-                                        {errors.title[0]}
+                                    <p className="text-sm text-muted-foreground">
+                                        Apresente o material de forma
+                                        clara.
                                     </p>
-                                )}
+                                </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="category_id">Categoria</Label>
-
-                                <select
-                                    id="category_id"
-                                    value={form.category_id}
-                                    disabled={loadingCategories}
-                                    onChange={(event) =>
-                                        updateField(
-                                            'category_id',
-                                            event.target.value,
-                                        )
-                                    }
-                                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                                >
-                                    <option value="">
-                                        Seleccione uma categoria
-                                    </option>
-
-                                    {categories.map((category) => (
-                                        <option
-                                            key={category.id}
-                                            value={category.id}
-                                        >
-                                            {category.name}
-                                        </option>
-                                    ))}
-                                </select>
-
-                                {errors.category_id?.[0] && (
-                                    <p className="text-sm text-destructive">
-                                        {errors.category_id[0]}
-                                    </p>
-                                )}
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="description">Descrição</Label>
-
-                                <textarea
-                                    id="description"
-                                    value={form.description}
-                                    onChange={(event) =>
-                                        updateField(
-                                            'description',
-                                            event.target.value,
-                                        )
-                                    }
-                                    rows={6}
-                                    placeholder="Descreva o estado e as principais características do material."
-                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                />
-
-                                {errors.description?.[0] && (
-                                    <p className="text-sm text-destructive">
-                                        {errors.description[0]}
-                                    </p>
-                                )}
-                            </div>
-
-                            <div className="grid gap-5 sm:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="transaction_type">
-                                        Tipo de transacção
-                                    </Label>
-
-                                    <select
-                                        id="transaction_type"
-                                        value={form.transaction_type}
-                                        onChange={(event) =>
-                                            updateField(
-                                                'transaction_type',
-                                                event.target.value,
-                                            )
-                                        }
-                                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                            <div className="space-y-5">
+                                <div>
+                                    <label
+                                        htmlFor="title"
+                                        className="mb-2 block text-sm font-medium"
                                     >
-                                        <option value="sale">Venda</option>
-                                        <option value="exchange">Troca</option>
-                                    </select>
+                                        Título do anúncio
+                                    </label>
 
-                                    {errors.transaction_type?.[0] && (
-                                        <p className="text-sm text-destructive">
-                                            {errors.transaction_type[0]}
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="price">
-                                        Preço em MZN
-                                    </Label>
-
-                                    <Input
-                                        id="price"
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        value={form.price}
-                                        disabled={
-                                            form.transaction_type === 'exchange'
-                                        }
+                                    <input
+                                        id="title"
+                                        type="text"
+                                        value={form.title}
+                                        maxLength={255}
+                                        disabled={submitting}
+                                        placeholder="Ex.: Livro de Programação em Java"
                                         onChange={(event) =>
                                             updateField(
-                                                'price',
+                                                'title',
                                                 event.target.value,
                                             )
                                         }
-                                        placeholder="Ex.: 500"
+                                        className={`h-11 w-full rounded-md border bg-background px-3 text-sm outline-none transition focus:ring-2 focus:ring-ring ${
+                                            firstError('title')
+                                                ? 'border-destructive'
+                                                : 'border-input'
+                                        }`}
                                     />
 
-                                    {errors.price?.[0] && (
-                                        <p className="text-sm text-destructive">
-                                            {errors.price[0]}
-                                        </p>
-                                    )}
+                                    <div className="mt-1 flex justify-between gap-4">
+                                        <FieldError
+                                            message={firstError(
+                                                'title',
+                                            )}
+                                        />
+
+                                        <span className="ml-auto text-xs text-muted-foreground">
+                                            {titleCharacters}/255
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label
+                                        htmlFor="description"
+                                        className="mb-2 block text-sm font-medium"
+                                    >
+                                        Descrição
+                                    </label>
+
+                                    <textarea
+                                        id="description"
+                                        rows={7}
+                                        value={form.description}
+                                        disabled={submitting}
+                                        placeholder="Descreva o estado, conteúdo, edição e outras informações importantes..."
+                                        onChange={(event) =>
+                                            updateField(
+                                                'description',
+                                                event.target.value,
+                                            )
+                                        }
+                                        className={`w-full resize-y rounded-md border bg-background px-3 py-3 text-sm outline-none transition focus:ring-2 focus:ring-ring ${
+                                            firstError('description')
+                                                ? 'border-destructive'
+                                                : 'border-input'
+                                        }`}
+                                    />
+
+                                    <div className="mt-1 flex justify-between gap-4">
+                                        <FieldError
+                                            message={firstError(
+                                                'description',
+                                            )}
+                                        />
+
+                                        <span className="ml-auto text-xs text-muted-foreground">
+                                            {descriptionCharacters}{' '}
+                                            caracteres
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label
+                                        htmlFor="category"
+                                        className="mb-2 block text-sm font-medium"
+                                    >
+                                        Categoria
+                                    </label>
+
+                                    <select
+                                        id="category"
+                                        value={form.category_id}
+                                        disabled={
+                                            submitting ||
+                                            loadingCategories
+                                        }
+                                        onChange={(event) =>
+                                            updateField(
+                                                'category_id',
+                                                event.target.value,
+                                            )
+                                        }
+                                        className={`h-11 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring ${
+                                            firstError('category_id')
+                                                ? 'border-destructive'
+                                                : 'border-input'
+                                        }`}
+                                    >
+                                        <option value="">
+                                            {loadingCategories
+                                                ? 'A carregar categorias...'
+                                                : 'Seleccione uma categoria'}
+                                        </option>
+
+                                        {categories.map(
+                                            (category) => (
+                                                <option
+                                                    key={category.id}
+                                                    value={category.id}
+                                                >
+                                                    {category.name}
+                                                </option>
+                                            ),
+                                        )}
+                                    </select>
+
+                                    <FieldError
+                                        message={firstError(
+                                            'category_id',
+                                        )}
+                                    />
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="rounded-xl border bg-card p-5 md:p-6">
+                            <div className="mb-5 flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                    <Tag className="h-5 w-5" />
+                                </div>
+
+                                <div>
+                                    <h2 className="font-semibold">
+                                        Tipo de transacção
+                                    </h2>
+
+                                    <p className="text-sm text-muted-foreground">
+                                        Escolha entre venda e troca.
+                                    </p>
                                 </div>
                             </div>
 
-                            <div className="flex justify-end gap-3">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <button
+                                    type="button"
+                                    disabled={submitting}
+                                    onClick={() =>
+                                        changeTransactionType(
+                                            'sale',
+                                        )
+                                    }
+                                    className={`rounded-xl border p-4 text-left transition ${
+                                        form.transaction_type ===
+                                        'sale'
+                                            ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                                            : 'border-input hover:bg-muted/50'
+                                    }`}
+                                >
+                                    <CircleDollarSign className="mb-3 h-6 w-6 text-primary" />
+
+                                    <p className="font-semibold">
+                                        Venda
+                                    </p>
+
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        O material será anunciado com
+                                        um preço.
+                                    </p>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    disabled={submitting}
+                                    onClick={() =>
+                                        changeTransactionType(
+                                            'exchange',
+                                        )
+                                    }
+                                    className={`rounded-xl border p-4 text-left transition ${
+                                        form.transaction_type ===
+                                        'exchange'
+                                            ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                                            : 'border-input hover:bg-muted/50'
+                                    }`}
+                                >
+                                    <RefreshCcw className="mb-3 h-6 w-6 text-primary" />
+
+                                    <p className="font-semibold">
+                                        Troca
+                                    </p>
+
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        O material será trocado por
+                                        outro recurso académico.
+                                    </p>
+                                </button>
+                            </div>
+
+                            <FieldError
+                                message={firstError(
+                                    'transaction_type',
+                                )}
+                            />
+
+                            {form.transaction_type === 'sale' && (
+                                <div className="mt-5">
+                                    <label
+                                        htmlFor="price"
+                                        className="mb-2 block text-sm font-medium"
+                                    >
+                                        Preço
+                                    </label>
+
+                                    <div className="relative">
+                                        <span className="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">
+                                            MZN
+                                        </span>
+
+                                        <input
+                                            id="price"
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={form.price}
+                                            disabled={submitting}
+                                            placeholder="0,00"
+                                            onChange={(event) =>
+                                                updateField(
+                                                    'price',
+                                                    event.target
+                                                        .value,
+                                                )
+                                            }
+                                            className={`h-11 w-full rounded-md border bg-background pr-3 pl-14 text-sm outline-none focus:ring-2 focus:ring-ring ${
+                                                firstError('price')
+                                                    ? 'border-destructive'
+                                                    : 'border-input'
+                                            }`}
+                                        />
+                                    </div>
+
+                                    <FieldError
+                                        message={firstError('price')}
+                                    />
+                                </div>
+                            )}
+                        </section>
+                    </div>
+
+                    <aside className="space-y-6">
+                        <section className="rounded-xl border bg-card p-5 lg:sticky lg:top-6">
+                            <div className="mb-4 flex items-center gap-3">
+                                <PackagePlus className="h-5 w-5 text-primary" />
+
+                                <h2 className="font-semibold">
+                                    Resumo
+                                </h2>
+                            </div>
+
+                            <div className="space-y-4 text-sm">
+                                <SummaryItem
+                                    label="Título"
+                                    value={
+                                        form.title.trim() ||
+                                        'Não informado'
+                                    }
+                                />
+
+                                <SummaryItem
+                                    label="Categoria"
+                                    value={
+                                        selectedCategory?.name ??
+                                        'Não seleccionada'
+                                    }
+                                />
+
+                                <SummaryItem
+                                    label="Transacção"
+                                    value={
+                                        form.transaction_type ===
+                                        'sale'
+                                            ? 'Venda'
+                                            : 'Troca'
+                                    }
+                                />
+
+                                <SummaryItem
+                                    label="Preço"
+                                    value={
+                                        form.transaction_type ===
+                                        'sale'
+                                            ? form.price
+                                                ? `${form.price} MZN`
+                                                : 'Não informado'
+                                            : 'Não aplicável'
+                                    }
+                                />
+
+                                <SummaryItem
+                                    label="Estado inicial"
+                                    value="Disponível"
+                                />
+                            </div>
+
+                            <div className="mt-6 space-y-3">
+                                <Button
+                                    type="submit"
+                                    className="w-full"
+                                    disabled={
+                                        submitting ||
+                                        loadingCategories
+                                    }
+                                >
+                                    {submitting ? (
+                                        <>
+                                            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                                            A publicar...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save className="mr-2 h-4 w-4" />
+                                            Publicar anúncio
+                                        </>
+                                    )}
+                                </Button>
+
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={() =>
-                                        router.visit('/my-listings')
-                                    }
+                                    className="w-full"
+                                    disabled={submitting}
+                                    onClick={resetForm}
                                 >
-                                    Cancelar
-                                </Button>
-
-                                <Button type="submit" disabled={submitting}>
-                                    {submitting && (
-                                        <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                                    )}
-
-                                    Publicar anúncio
+                                    Limpar formulário
                                 </Button>
                             </div>
-                        </form>
-                    </CardContent>
-                </Card>
+                        </section>
+                    </aside>
+                </form>
             </div>
         </StudentLayout>
+    );
+}
+
+function FieldError({
+    message,
+}: {
+    message?: string;
+}) {
+    if (!message) {
+        return null;
+    }
+
+    return (
+        <p className="mt-1 text-sm text-destructive">
+            {message}
+        </p>
+    );
+}
+
+function SummaryItem({
+    label,
+    value,
+}: {
+    label: string;
+    value: string;
+}) {
+    return (
+        <div className="border-b pb-3 last:border-b-0 last:pb-0">
+            <p className="text-muted-foreground">{label}</p>
+            <p className="mt-1 break-words font-medium">
+                {value}
+            </p>
+        </div>
     );
 }

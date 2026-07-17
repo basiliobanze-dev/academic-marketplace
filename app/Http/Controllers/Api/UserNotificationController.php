@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\UserNotificationResource;
 use App\Models\UserNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -10,71 +11,109 @@ use Illuminate\Http\Request;
 class UserNotificationController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Lista as notificações do utilizador autenticado.
      */
     public function index(Request $request): JsonResponse
     {
-        $notifications = UserNotification::where('user_id', $request->user()->id)
+        $notifications = UserNotification::where(
+                'user_id',
+                $request->user()->id
+            )
             ->latest()
             ->get();
 
-        return response()->json($notifications);
+        return response()->json([
+            'data' => UserNotificationResource::collection($notifications)
+                ->resolve($request),
+        ]);
     }
 
     /**
-     * Display the specified resource.
+     * Mostra uma notificação específica.
      */
-    public function show(Request $request, UserNotification $notification): JsonResponse
-    {
-        if ($notification->user_id !== $request->user()->id) {
-            abort(403);
-        }
-
-        return new UserNotificationResource($notification);
-    }
-
-    public function markAsRead(Request $request, UserNotification $notification): JsonResponse
-    {
-        if ($notification->user_id !== $request->user()->id) {
-            abort(403);
-        }
-
-        $notification->update([
-            'is_read' => true
-        ]);
+    public function show(
+        Request $request,
+        UserNotification $notification
+    ): JsonResponse {
+        $this->authorizeNotification($request, $notification);
 
         return response()->json([
-            'message' => 'Notification marked as read.',
-            'notification' => new UserNotificationResource($notification)
+            'data' => (new UserNotificationResource($notification))
+                ->resolve($request),
         ]);
     }
 
+    /**
+     * Marca uma notificação como lida.
+     */
+    public function markAsRead(
+        Request $request,
+        UserNotification $notification
+    ): JsonResponse {
+        $this->authorizeNotification($request, $notification);
+
+        if (! $notification->is_read) {
+            $notification->update([
+                'is_read' => true,
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Notificação marcada como lida.',
+            'data' => (new UserNotificationResource(
+                $notification->fresh()
+            ))->resolve($request),
+        ]);
+    }
+
+    /**
+     * Marca todas as notificações como lidas.
+     */
     public function markAllAsRead(Request $request): JsonResponse
     {
-        UserNotification::where('user_id', $request->user()->id)
+        $updatedNotifications = UserNotification::where(
+                'user_id',
+                $request->user()->id
+            )
             ->where('is_read', false)
             ->update([
-                'is_read' => true
+                'is_read' => true,
             ]);
 
         return response()->json([
-            'message' => 'All notifications marked as read.'
+            'message' => 'Todas as notificações foram marcadas como lidas.',
+            'updated_count' => $updatedNotifications,
         ]);
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Elimina uma notificação.
      */
-    public function destroy(Request $request, UserNotification $notification): JsonResponse
-    {
-        if ($notification->user_id !== $request->user()->id) {
-            abort(403);
-        }
+    public function destroy(
+        Request $request,
+        UserNotification $notification
+    ): JsonResponse {
+        $this->authorizeNotification($request, $notification);
 
         $notification->delete();
 
         return response()->json([
-            'message' => 'Notification deleted successfully.'
+            'message' => 'Notificação eliminada com sucesso.',
         ]);
+    }
+
+    /**
+     * Confirma que a notificação pertence ao utilizador.
+     */
+    private function authorizeNotification(
+        Request $request,
+        UserNotification $notification
+    ): void {
+        abort_unless(
+            (int) $notification->user_id ===
+                (int) $request->user()->id,
+            403,
+            'Não possui autorização para aceder a esta notificação.'
+        );
     }
 }

@@ -17,12 +17,22 @@ class ReportResource extends JsonResource
         return [
             'id' => $this->id,
             'reason' => $this->reason,
+            'description' => $this->description,
             'status' => $this->status,
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
-            'reporter' => new UserResource($this->whenLoaded('reporter')),
-            'listing' => new ListingResource($this->whenLoaded('listing')),
-            'reported_user' => new UserResource($this->whenLoaded('reportedUser')),
+            'created_at' => $this->created_at?->toISOString(),
+            'updated_at' => $this->updated_at?->toISOString(),
+
+            'reporter' => new UserResource(
+                $this->whenLoaded('reporter')
+            ),
+
+            'reported_user' => new UserResource(
+                $this->whenLoaded('reportedUser')
+            ),
+
+            'listing' => new ListingResource(
+                $this->whenLoaded('listing')
+            ),
         ];
     }
 }

@@ -7,93 +7,219 @@ use App\Http\Requests\StoreReviewRequest;
 use App\Http\Requests\UpdateReviewRequest;
 use App\Http\Resources\ReviewResource;
 use App\Models\Review;
+use App\Services\UserNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ReviewController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Lista as avaliações relacionadas com o utilizador autenticado.
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $reviews = Review::with([
-            'reviewer',
-            'reviewedUser'
-        ])->latest()->get();
+        $userId = (int) $request->user()->id;
+        $type = $request->query('type');
 
-        return response()->json(
-            ReviewResource::collection($reviews)
-        );
+        $reviews = Review::with([
+                'reviewer:id,name',
+                'reviewedUser:id,name',
+            ])
+            ->when(
+                $type === 'received',
+                fn ($query) => $query->where(
+                    'reviewed_user_id',
+                    $userId
+                )
+            )
+            ->when(
+                $type === 'given',
+                fn ($query) => $query->where(
+                    'reviewer_id',
+                    $userId
+                )
+            )
+            ->when(
+                ! in_array($type, ['received', 'given'], true),
+                function ($query) use ($userId) {
+                    $query->where(function ($subQuery) use ($userId) {
+                        $subQuery
+                            ->where('reviewer_id', $userId)
+                            ->orWhere('reviewed_user_id', $userId);
+                    });
+                }
+            )
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'data' => ReviewResource::collection($reviews)
+                ->resolve($request),
+        ]);
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Cria uma avaliação.
      */
-    public function store(StoreReviewRequest $request): JsonResponse
-    {
-        $review = Review::create([
-            'reviewer_id' => $request->user()->id,
-            'reviewed_user_id' => $request->reviewed_user_id,
-            'rating' => $request->rating,
-            'comment' => $request->comment,
+    public function store(
+        StoreReviewRequest $request,
+        UserNotificationService $notificationService
+    ): JsonResponse {
+        $reviewer = $request->user();
+        $reviewerId = (int) $reviewer->id;
+        $reviewedUserId = (int) $request->validated(
+            'reviewed_user_id'
+        );
+
+        if ($reviewedUserId === $reviewerId) {
+            return response()->json([
+                'message' => 'Não pode avaliar a sua própria conta.',
+            ], 422);
+        }
+
+        $existingReview = Review::where(
+                'reviewer_id',
+                $reviewerId
+            )
+            ->where(
+                'reviewed_user_id',
+                $reviewedUserId
+            )
+            ->exists();
+
+        if ($existingReview) {
+            return response()->json([
+                'message' => 'Já avaliou este utilizador.',
+            ], 422);
+        }
+
+        $review = DB::transaction(function () use (
+            $request,
+            $reviewer,
+            $reviewerId,
+            $reviewedUserId,
+            $notificationService
+        ) {
+            $review = Review::create([
+                'reviewer_id' => $reviewerId,
+                'reviewed_user_id' => $reviewedUserId,
+                'rating' => $request->validated('rating'),
+                'comment' => $request->validated('comment'),
+            ]);
+
+            $notificationService->create(
+                userId: $reviewedUserId,
+                title: 'Nova avaliação',
+                message: $reviewer->name
+                    . ' avaliou o seu perfil com '
+                    . $review->rating
+                    . ' estrela(s).'
+            );
+
+            return $review;
+        });
+
+        $review->load([
+            'reviewer:id,name',
+            'reviewedUser:id,name',
         ]);
 
         return response()->json([
-            'message' => 'Review created successfully.',
-            'review' => new ReviewResource($review)
+            'message' => 'Avaliação criada com sucesso.',
+            'data' => (new ReviewResource($review))
+                ->resolve($request),
         ], 201);
     }
 
     /**
-     * Display the specified resource.
+     * Mostra uma avaliação.
      */
-    public function show(Review $review): JsonResponse
-    {
+    public function show(
+        Request $request,
+        Review $review
+    ): JsonResponse {
+        $this->authorizeAccess($request, $review);
+
         $review->load([
-            'reviewer',
-            'reviewedUser'
+            'reviewer:id,name',
+            'reviewedUser:id,name',
         ]);
 
-        return response()->json(
-            new ReviewResource($review)
-        );
+        return response()->json([
+            'data' => (new ReviewResource($review))
+                ->resolve($request),
+        ]);
     }
 
     /**
-     * Update the specified resource in storage.
+     * Actualiza uma avaliação feita pelo utilizador.
      */
-    public function update(UpdateReviewRequest $request, Review $review): JsonResponse
-    {
-        if ($review->reviewer_id != $request->user()->id) {
-            return response()->json([
-                'message' => 'Unauthorized.'
-            ], 403);
-        }
+    public function update(
+        UpdateReviewRequest $request,
+        Review $review
+    ): JsonResponse {
+        $this->authorizeOwner($request, $review);
 
         $review->update($request->validated());
 
+        $review->load([
+            'reviewer:id,name',
+            'reviewedUser:id,name',
+        ]);
+
         return response()->json([
-            'message' => 'Review updated successfully.',
-            'review' => new ReviewResource($review),
+            'message' => 'Avaliação actualizada com sucesso.',
+            'data' => (new ReviewResource($review->fresh()))
+                ->resolve($request),
         ]);
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Elimina uma avaliação feita pelo utilizador.
      */
-    public function destroy(Request $request, Review $review): JsonResponse
-    {
-        if ($review->reviewer_id != $request->user()->id) {
-            return response()->json([
-                'message' => 'Unauthorized.'
-            ], 403);
-        }
+    public function destroy(
+        Request $request,
+        Review $review
+    ): JsonResponse {
+        $this->authorizeOwner($request, $review);
 
         $review->delete();
 
         return response()->json([
-            'message' => 'Review deleted successfully.'
+            'message' => 'Avaliação eliminada com sucesso.',
         ]);
+    }
+
+    /**
+     * Confirma que o utilizador participa na avaliação.
+     */
+    private function authorizeAccess(
+        Request $request,
+        Review $review
+    ): void {
+        $userId = (int) $request->user()->id;
+
+        abort_unless(
+            (int) $review->reviewer_id === $userId ||
+            (int) $review->reviewed_user_id === $userId,
+            403,
+            'Não possui autorização para consultar esta avaliação.'
+        );
+    }
+
+    /**
+     * Confirma que a avaliação pertence ao utilizador.
+     */
+    private function authorizeOwner(
+        Request $request,
+        Review $review
+    ): void {
+        abort_unless(
+            (int) $review->reviewer_id ===
+                (int) $request->user()->id,
+            403,
+            'Não possui autorização para alterar esta avaliação.'
+        );
     }
 }

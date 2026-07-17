@@ -8,8 +8,6 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class UserNotificationResource extends JsonResource
 {
     /**
-     * Transform the resource into an array.
-     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
@@ -18,10 +16,9 @@ class UserNotificationResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             'message' => $this->message,
-            'is_read' => $this->is_read,
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
-            'user' => new UserResource($this->whenLoaded('user')),
+            'is_read' => (bool) $this->is_read,
+            'created_at' => $this->created_at?->toISOString(),
+            'updated_at' => $this->updated_at?->toISOString(),
         ];
     }
 }

@@ -3,111 +3,217 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use App\Models\Listing;
-use App\Models\Report;
-use App\Http\Resources\UserResource;
 use App\Http\Resources\ListingResource;
 use App\Http\Resources\ReportResource;
+use App\Http\Resources\UserResource;
+use App\Models\Listing;
+use App\Models\Report;
+use App\Models\User;
+use App\Services\UserNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
 {
     /**
-     * Dashboard.
+     * Dados gerais do painel administrativo.
      */
     public function dashboard(Request $request): JsonResponse
     {
         return response()->json([
-            'users' => User::count(),
-            'listings' => Listing::count(),
-            'reports' => Report::count(),
-            'pending_reports' => Report::where('status', 'pending')->count(),
-            'resolved_reports' => Report::where('status', 'resolved')->count(),
+            'data' => [
+                'users' => User::count(),
+                'students' => User::where(
+                    'role',
+                    'student'
+                )->count(),
+                'admins' => User::where(
+                    'role',
+                    'admin'
+                )->count(),
+                'listings' => Listing::count(),
+                'reports' => Report::count(),
+                'pending_reports' => Report::where(
+                    'status',
+                    'pending'
+                )->count(),
+                'resolved_reports' => Report::where(
+                    'status',
+                    'resolved'
+                )->count(),
+            ],
         ]);
     }
 
     /**
-     * Listar utilizadores.
+     * Lista utilizadores com paginação.
      */
-    public function users(Request $request)
+    public function users(Request $request): JsonResponse
     {
-        return UserResource::collection(
-            User::latest()->get()
-        );
+        $users = User::latest()->paginate(10);
+
+        return response()->json([
+            'data' => UserResource::collection(
+                $users->items()
+            )->resolve($request),
+
+            'meta' => [
+                'current_page' => $users->currentPage(),
+                'last_page' => $users->lastPage(),
+                'per_page' => $users->perPage(),
+                'total' => $users->total(),
+            ],
+        ]);
     }
 
     /**
-     * Remover utilizador.
+     * Remove um utilizador.
      */
-    public function destroyUser(Request $request, User $user): JsonResponse
-    {
+    public function destroyUser(
+        Request $request,
+        User $user
+    ): JsonResponse {
+        if ((int) $user->id === (int) $request->user()->id) {
+            return response()->json([
+                'message' =>
+                    'Não pode eliminar a sua própria conta administrativa.',
+            ], 422);
+        }
+
         $user->delete();
 
         return response()->json([
-            'message' => 'User deleted successfully.'
+            'message' => 'Utilizador eliminado com sucesso.',
         ]);
     }
 
     /**
-     * Listar anúncios.
+     * Lista anúncios com paginação.
      */
-    public function listings(Request $request)
+    public function listings(Request $request): JsonResponse
     {
-        return ListingResource::collection(
-            Listing::with(['user', 'category'])
-                ->latest()
-                ->get()
-        );
-    }
-
-    /**
-     * Remover anúncio.
-     */
-    public function destroyListing(Request $request, Listing $listing): JsonResponse
-    {
-        $listing->delete();
+        $listings = Listing::with([
+                'user',
+                'category',
+            ])
+            ->latest()
+            ->paginate(10);
 
         return response()->json([
-            'message' => 'Listing deleted successfully.'
+            'data' => ListingResource::collection(
+                $listings->items()
+            )->resolve($request),
+
+            'meta' => [
+                'current_page' => $listings->currentPage(),
+                'last_page' => $listings->lastPage(),
+                'per_page' => $listings->perPage(),
+                'total' => $listings->total(),
+            ],
         ]);
     }
 
     /**
-     * Listar denúncias.
+     * Remove um anúncio.
      */
-    public function reports(Request $request)
+    public function destroyListing(
+        Request $request,
+        Listing $listing,
+        UserNotificationService $notificationService
+    ): JsonResponse {
+        DB::transaction(function () use (
+            $listing,
+            $notificationService
+        ) {
+            $ownerId = (int) $listing->user_id;
+            $listingTitle = $listing->title;
+
+            $listing->delete();
+
+            $notificationService->create(
+                userId: $ownerId,
+                title: 'Anúncio removido',
+                message: 'O seu anúncio "'
+                    . $listingTitle
+                    . '" foi removido pelo administrador.'
+            );
+        });
+
+        return response()->json([
+            'message' => 'Anúncio eliminado com sucesso.',
+        ]);
+    }
+
+    /**
+     * Lista denúncias com paginação.
+     */
+    public function reports(Request $request): JsonResponse
     {
-        return ReportResource::collection(
-            Report::with([
+        $reports = Report::with([
                 'reporter',
                 'listing.user',
                 'listing.category',
-                'reportedUser'
+                'reportedUser',
             ])
             ->latest()
-            ->get()
-        );
+            ->paginate(10);
+
+        return response()->json([
+            'data' => ReportResource::collection(
+                $reports->items()
+            )->resolve($request),
+
+            'meta' => [
+                'current_page' => $reports->currentPage(),
+                'last_page' => $reports->lastPage(),
+                'per_page' => $reports->perPage(),
+                'total' => $reports->total(),
+            ],
+        ]);
     }
 
     /**
-     * Resolver denúncia.
+     * Resolve uma denúncia.
      */
-    public function resolveReport(Request $request, Report $report): JsonResponse
-    {
-        $report->update(['status' => 'resolved']);
+    public function resolveReport(
+        Request $request,
+        Report $report,
+        UserNotificationService $notificationService
+    ): JsonResponse {
+        if ($report->status === 'resolved') {
+            return response()->json([
+                'message' => 'Esta denúncia já foi resolvida.',
+            ], 422);
+        }
+
+        DB::transaction(function () use (
+            $report,
+            $notificationService
+        ) {
+            $report->update([
+                'status' => 'resolved',
+            ]);
+
+            $notificationService->create(
+                userId: (int) $report->reporter_id,
+                title: 'Denúncia analisada',
+                message: 'A sua denúncia foi analisada e marcada '
+                    . 'como resolvida pelo administrador.'
+            );
+        });
 
         $report->load([
             'reporter',
             'listing.user',
             'listing.category',
-            'reportedUser'
+            'reportedUser',
         ]);
 
         return response()->json([
-            'message' => 'Report resolved successfully.',
-            'report' => new ReportResource($report)
+            'message' => 'Denúncia resolvida com sucesso.',
+            'data' => (new ReportResource($report->fresh()))
+                ->resolve($request),
         ]);
     }
 }

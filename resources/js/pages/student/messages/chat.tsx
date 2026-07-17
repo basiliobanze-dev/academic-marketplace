@@ -9,6 +9,7 @@ import {
     ArrowLeft,
     LoaderCircle,
     Send,
+    Star,
     User,
 } from 'lucide-react';
 import {
@@ -213,30 +214,45 @@ export default function Chat({ contact }: ChatProps) {
 
             <div className="flex flex-1 flex-col p-4 md:p-6">
                 <div className="mx-auto flex h-[calc(100vh-9rem)] w-full max-w-4xl flex-col overflow-hidden rounded-xl border bg-card">
-                    <header className="flex items-center gap-3 border-b p-4">
+                    <header className="flex items-center justify-between gap-4 border-b p-4">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                asChild
+                            >
+                                <Link href="/messages">
+                                    <ArrowLeft className="h-5 w-5" />
+                                </Link>
+                            </Button>
+
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                <User className="h-5 w-5" />
+                            </div>
+
+                            <div className="min-w-0">
+                                <h1 className="truncate font-semibold">
+                                    {contact.name}
+                                </h1>
+
+                                <p className="text-xs text-muted-foreground">
+                                    Conversa entre estudantes
+                                </p>
+                            </div>
+                        </div>
+
                         <Button
-                            size="icon"
-                            variant="ghost"
+                            size="sm"
+                            variant="outline"
                             asChild
                         >
-                            <Link href="/messages">
-                                <ArrowLeft className="h-5 w-5" />
+                            <Link href={`/reviews/create/${contact.id}`}>
+                                <Star className="h-4 w-4 sm:mr-2" />
+                                <span className="hidden sm:inline">
+                                    Avaliar
+                                </span>
                             </Link>
                         </Button>
-
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                            <User className="h-5 w-5" />
-                        </div>
-
-                        <div>
-                            <h1 className="font-semibold">
-                                {contact.name}
-                            </h1>
-
-                            <p className="text-xs text-muted-foreground">
-                                Conversa entre estudantes
-                            </p>
-                        </div>
                     </header>
 
                     <div className="flex-1 overflow-y-auto bg-muted/20 p-4 md:p-6">

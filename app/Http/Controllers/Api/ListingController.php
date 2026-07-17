@@ -45,19 +45,28 @@ class ListingController extends Controller
      */
     public function store(StoreListingRequest $request)
     {
+        $validated = $request->validated();
+
         $listing = Listing::create([
             'user_id' => $request->user()->id,
-            'category_id' => $request->category_id,
-            'title' => $request->title,
-            'description' => $request->description,
-            'price' => $request->price,
-            'transaction_type' => $request->transaction_type,
-            'status' => 'available'
+            'category_id' => $validated['category_id'],
+            'title' => $validated['title'],
+            'description' => $validated['description'],
+            'price' => $validated['transaction_type'] === 'sale'
+                ? $validated['price']
+                : null,
+            'transaction_type' => $validated['transaction_type'],
+            'status' => 'available',
+        ]);
+
+        $listing->load([
+            'user',
+            'category',
         ]);
 
         return response()->json([
             'message' => 'Listing created successfully.',
-            'listing' => new ListingResource($listing)
+            'listing' => new ListingResource($listing),
         ], 201);
     }
 

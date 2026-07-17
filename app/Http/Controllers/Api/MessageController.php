@@ -7,14 +7,19 @@ use App\Http\Requests\StoreMessageRequest;
 use App\Http\Resources\MessageResource;
 use App\Models\Message;
 use App\Models\User;
+use App\Services\UserNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class MessageController extends Controller
 {
+    /**
+     * Lista as mensagens relacionadas com o utilizador autenticado.
+     */
     public function index(Request $request): JsonResponse
     {
-        $userId = $request->user()->id;
+        $userId = (int) $request->user()->id;
 
         $messages = Message::with([
                 'sender:id,name',
@@ -33,9 +38,15 @@ class MessageController extends Controller
         ]);
     }
 
-    public function store(StoreMessageRequest $request): JsonResponse
-    {
-        $authenticatedUserId = $request->user()->id;
+    /**
+     * Envia uma mensagem.
+     */
+    public function store(
+        StoreMessageRequest $request,
+        UserNotificationService $notificationService
+    ): JsonResponse {
+        $authenticatedUser = $request->user();
+        $authenticatedUserId = (int) $authenticatedUser->id;
         $receiverId = (int) $request->validated('receiver_id');
 
         if ($receiverId === $authenticatedUserId) {
@@ -44,12 +55,29 @@ class MessageController extends Controller
             ], 422);
         }
 
-        $message = Message::create([
-            'sender_id' => $authenticatedUserId,
-            'receiver_id' => $receiverId,
-            'message' => $request->validated('message'),
-            'is_read' => false,
-        ]);
+        $message = DB::transaction(function () use (
+            $request,
+            $authenticatedUser,
+            $authenticatedUserId,
+            $receiverId,
+            $notificationService
+        ) {
+            $message = Message::create([
+                'sender_id' => $authenticatedUserId,
+                'receiver_id' => $receiverId,
+                'message' => $request->validated('message'),
+                'is_read' => false,
+            ]);
+
+            $notificationService->create(
+                userId: $receiverId,
+                title: 'Nova mensagem',
+                message: $authenticatedUser->name
+                    . ' enviou-lhe uma nova mensagem.'
+            );
+
+            return $message;
+        });
 
         $message->load([
             'sender:id,name',
@@ -63,13 +91,16 @@ class MessageController extends Controller
         ], 201);
     }
 
+    /**
+     * Mostra a conversa com outro utilizador.
+     */
     public function conversation(
         User $user,
         Request $request
     ): JsonResponse {
-        $authenticatedUserId = $request->user()->id;
+        $authenticatedUserId = (int) $request->user()->id;
 
-        if ($user->id === $authenticatedUserId) {
+        if ((int) $user->id === $authenticatedUserId) {
             return response()->json([
                 'message' => 'Não pode abrir uma conversa consigo próprio.',
             ], 422);

@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Listing;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class StoreReportRequest extends FormRequest
 {
@@ -23,66 +25,87 @@ class StoreReportRequest extends FormRequest
     public function rules(): array
     {
         return [
-
             'listing_id' => [
                 'nullable',
-                'exists:listings,id'
+                'integer',
+                'exists:listings,id',
             ],
 
             'reported_user_id' => [
                 'nullable',
+                'integer',
                 'exists:users,id',
-                'different:' . $this->user()->id,
             ],
 
             'reason' => [
                 'required',
                 'string',
-                'max:1000'
-            ]
-
+                'max:1000',
+            ],
         ];
     }
 
-    public function withValidator($validator)
+    /**
+     * Configure the validator instance.
+     */
+    public function withValidator(Validator $validator): void
     {
-        $validator->after(function ($validator) {
-
+        $validator->after(function (Validator $validator) {
             if (!$this->listing_id && !$this->reported_user_id) {
-
                 $validator->errors()->add(
                     'target',
-                    'You must report either a listing or a user.'
+                    'Deve denunciar um anúncio ou um utilizador.'
                 );
-
             }
 
             if ($this->listing_id && $this->reported_user_id) {
-
                 $validator->errors()->add(
                     'target',
-                    'You can report only one target at a time.'
+                    'Só pode denunciar um alvo de cada vez.'
                 );
-
             }
 
+            if (
+                $this->reported_user_id &&
+                (int) $this->reported_user_id === (int) $this->user()->id
+            ) {
+                $validator->errors()->add(
+                    'reported_user_id',
+                    'Não pode denunciar a si próprio.'
+                );
+            }
+
+            if ($this->listing_id) {
+                $listing = Listing::find($this->listing_id);
+
+                if (
+                    $listing &&
+                    (int) $listing->user_id === (int) $this->user()->id
+                ) {
+                    $validator->errors()->add(
+                        'listing_id',
+                        'Não pode denunciar o seu próprio anúncio.'
+                    );
+                }
+            }
         });
     }
 
+    /**
+     * Get custom validation messages.
+     */
     public function messages(): array
     {
         return [
+            'listing_id.integer' => 'O anúncio seleccionado é inválido.',
+            'listing_id.exists' => 'O anúncio não foi encontrado.',
 
-            'listing_id.exists' => 'Listing not found.',
+            'reported_user_id.integer' => 'O utilizador seleccionado é inválido.',
+            'reported_user_id.exists' => 'O utilizador não foi encontrado.',
 
-            'reported_user_id.exists' => 'User not found.',
-
-            'reported_user_id.different' => 'You cannot report yourself.',
-
-            'reason.required' => 'Reason is required.',
-
-            'reason.max' => 'Reason cannot exceed 1000 characters.'
-
+            'reason.required' => 'Indique o motivo da denúncia.',
+            'reason.string' => 'O motivo deve ser um texto.',
+            'reason.max' => 'O motivo não pode exceder 1000 caracteres.',
         ];
     }
 }

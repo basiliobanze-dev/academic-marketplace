@@ -19,12 +19,31 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'role' => $this->role,
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
-            'listings' => ListingResource::collection($this->whenLoaded('listings')),
-            'reviews_given' => ReviewResource::collection($this->whenLoaded('reviewsGiven')),
-            'reviews_received' => ReviewResource::collection($this->whenLoaded('reviewsReceived')),
-            'notifications' => UserNotificationResource::collection($this->whenLoaded('notifications')),
+
+            'email_verified_at' =>
+                $this->email_verified_at?->toISOString(),
+
+            'created_at' =>
+                $this->created_at?->toISOString(),
+
+            'updated_at' =>
+                $this->updated_at?->toISOString(),
+
+            'listings' => ListingResource::collection(
+                $this->whenLoaded('listings')
+            ),
+
+            'reviews_given' => ReviewResource::collection(
+                $this->whenLoaded('reviewsGiven')
+            ),
+
+            'reviews_received' => ReviewResource::collection(
+                $this->whenLoaded('reviewsReceived')
+            ),
+
+            'notifications' => UserNotificationResource::collection(
+                $this->whenLoaded('notifications')
+            ),
         ];
     }
 }
