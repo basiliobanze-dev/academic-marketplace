@@ -12,6 +12,7 @@ import {
     PackageOpen,
     PlusCircle,
     Search,
+    Star,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -37,6 +38,21 @@ interface Message {
     };
 }
 
+interface Review {
+    id: number;
+    rating: number;
+    comment: string | null;
+    created_at: string;
+    reviewer: {
+        id: number;
+        name: string;
+    };
+    reviewed_user: {
+        id: number;
+        name: string;
+    };
+}
+
 interface UserNotification {
     id: number;
     title: string;
@@ -54,6 +70,10 @@ interface ListingsResponse {
 
 interface MessagesResponse {
     data: Message[];
+}
+
+interface ReviewsResponse {
+    data: Review[];
 }
 
 interface NotificationsResponse {
@@ -78,9 +98,11 @@ function formatDate(date: string): string {
 export default function Dashboard() {
     const [listings, setListings] = useState<Listing[]>([]);
     const [messages, setMessages] = useState<Message[]>([]);
+    const [reviews, setReviews] = useState<Review[]>([]);
     const [notifications, setNotifications] = useState<
         UserNotification[]
     >([]);
+
     const [totalListings, setTotalListings] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -101,8 +123,11 @@ export default function Dashboard() {
         [notifications],
     );
 
+    const totalReviews = reviews.length;
+
     const recentListings = listings.slice(0, 3);
     const recentMessages = messages.slice(0, 3);
+    const recentReviews = reviews.slice(0, 3);
 
     async function loadDashboard() {
         try {
@@ -112,14 +137,21 @@ export default function Dashboard() {
             const [
                 listingsResponse,
                 messagesResponse,
+                reviewsResponse,
                 notificationsResponse,
             ] = await Promise.all([
                 api.get<ListingsResponse>('/api/my-listings'),
                 api.get<MessagesResponse>('/api/messages'),
-                api.get<NotificationsResponse>('/api/notifications'),
+                api.get<ReviewsResponse>(
+                    '/api/reviews?type=received',
+                ),
+                api.get<NotificationsResponse>(
+                    '/api/notifications',
+                ),
             ]);
 
-            const loadedListings = listingsResponse.data.data ?? [];
+            const loadedListings =
+                listingsResponse.data.data ?? [];
 
             setListings(loadedListings);
 
@@ -128,17 +160,31 @@ export default function Dashboard() {
                     loadedListings.length,
             );
 
-            setMessages(messagesResponse.data.data ?? []);
-            setNotifications(notificationsResponse.data.data ?? []);
-        } catch (requestError) {
-            const error = requestError as AxiosError;
+            setMessages(
+                messagesResponse.data.data ?? [],
+            );
 
-            if (error.response?.status === 401) {
+            setReviews(
+                reviewsResponse.data.data ?? [],
+            );
+
+            setNotifications(
+                notificationsResponse.data.data ?? [],
+            );
+        } catch (requestError) {
+            const axiosError = requestError as AxiosError<{
+                message?: string;
+            }>;
+
+            if (axiosError.response?.status === 401) {
                 router.visit('/login');
                 return;
             }
 
-            setError('Não foi possível carregar os dados do painel.');
+            setError(
+                axiosError.response?.data.message ??
+                    'Não foi possível carregar os dados do painel.',
+            );
         } finally {
             setLoading(false);
         }
@@ -159,10 +205,19 @@ export default function Dashboard() {
         },
         {
             title: 'Mensagens não lidas',
-            description: 'Consulte as conversas com outros estudantes.',
+            description:
+                'Consulte as conversas com outros estudantes.',
             value: unreadMessages,
             icon: MessageSquare,
             href: '/messages',
+        },
+        {
+            title: 'Avaliações recebidas',
+            description:
+                'Veja as avaliações feitas por outros estudantes.',
+            value: totalReviews,
+            icon: Star,
+            href: '/reviews',
         },
         {
             title: 'Notificações não lidas',
@@ -244,7 +299,7 @@ export default function Dashboard() {
                                 </p>
                             </div>
 
-                            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                                 {dashboardCards.map((card) => {
                                     const Icon = card.icon;
 
@@ -297,7 +352,11 @@ export default function Dashboard() {
                                         </div>
                                     </div>
 
-                                    <Button size="sm" variant="ghost" asChild>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        asChild
+                                    >
                                         <Link href="/my-listings">
                                             Ver todos
                                         </Link>
@@ -326,27 +385,29 @@ export default function Dashboard() {
                                     </div>
                                 ) : (
                                     <div className="mt-6 space-y-3">
-                                        {recentListings.map((listing) => (
-                                            <Link
-                                                key={listing.id}
-                                                href={`/listings/${listing.id}`}
-                                                className="flex items-center justify-between gap-4 rounded-lg border p-4 transition hover:bg-muted/40"
-                                            >
-                                                <div className="min-w-0">
-                                                    <p className="truncate font-medium">
-                                                        {listing.title}
-                                                    </p>
+                                        {recentListings.map(
+                                            (listing) => (
+                                                <Link
+                                                    key={listing.id}
+                                                    href={`/listings/${listing.id}`}
+                                                    className="flex items-center justify-between gap-4 rounded-lg border p-4 transition hover:bg-muted/40"
+                                                >
+                                                    <div className="min-w-0">
+                                                        <p className="truncate font-medium">
+                                                            {listing.title}
+                                                        </p>
 
-                                                    <p className="mt-1 text-xs text-muted-foreground">
-                                                        {formatDate(
-                                                            listing.created_at,
-                                                        )}
-                                                    </p>
-                                                </div>
+                                                        <p className="mt-1 text-xs text-muted-foreground">
+                                                            {formatDate(
+                                                                listing.created_at,
+                                                            )}
+                                                        </p>
+                                                    </div>
 
-                                                <BookOpen className="h-5 w-5 shrink-0 text-primary" />
-                                            </Link>
-                                        ))}
+                                                    <BookOpen className="h-5 w-5 shrink-0 text-primary" />
+                                                </Link>
+                                            ),
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -370,7 +431,11 @@ export default function Dashboard() {
                                         </div>
                                     </div>
 
-                                    <Button size="sm" variant="ghost" asChild>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        asChild
+                                    >
                                         <Link href="/messages">
                                             Ver todas
                                         </Link>
@@ -392,39 +457,127 @@ export default function Dashboard() {
                                     </div>
                                 ) : (
                                     <div className="mt-6 space-y-3">
-                                        {recentMessages.map((message) => {
-                                            const contact = message.is_mine
-                                                ? message.receiver
-                                                : message.sender;
+                                        {recentMessages.map(
+                                            (message) => {
+                                                const contact =
+                                                    message.is_mine
+                                                        ? message.receiver
+                                                        : message.sender;
 
-                                            return (
-                                                <Link
-                                                    key={message.id}
-                                                    href={`/messages/${contact.id}`}
-                                                    className="block rounded-lg border p-4 transition hover:bg-muted/40"
-                                                >
-                                                    <div className="flex items-center justify-between gap-3">
-                                                        <p className="truncate font-medium">
-                                                            {contact.name}
+                                                return (
+                                                    <Link
+                                                        key={message.id}
+                                                        href={`/messages/${contact.id}`}
+                                                        className="block rounded-lg border p-4 transition hover:bg-muted/40"
+                                                    >
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <p className="truncate font-medium">
+                                                                {
+                                                                    contact.name
+                                                                }
+                                                            </p>
+
+                                                            {!message.is_mine &&
+                                                                !message.is_read && (
+                                                                    <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+                                                                        Nova
+                                                                    </span>
+                                                                )}
+                                                        </div>
+
+                                                        <p className="mt-2 truncate text-sm text-muted-foreground">
+                                                            {message.is_mine
+                                                                ? 'Você: '
+                                                                : ''}
+                                                            {
+                                                                message.message
+                                                            }
                                                         </p>
+                                                    </Link>
+                                                );
+                                            },
+                                        )}
+                                    </div>
+                                )}
+                            </div>
 
-                                                        {!message.is_mine &&
-                                                            !message.is_read && (
-                                                                <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
-                                                                    Nova
-                                                                </span>
-                                                            )}
-                                                    </div>
+                            <div className="rounded-xl border bg-card p-6 lg:col-span-2">
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                            <Star className="h-5 w-5" />
+                                        </div>
 
-                                                    <p className="mt-2 truncate text-sm text-muted-foreground">
-                                                        {message.is_mine
-                                                            ? 'Você: '
-                                                            : ''}
-                                                        {message.message}
+                                        <div>
+                                            <h2 className="font-semibold">
+                                                Avaliações recentes
+                                            </h2>
+
+                                            <p className="text-sm text-muted-foreground">
+                                                As avaliações que recebeu
+                                                recentemente.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        asChild
+                                    >
+                                        <Link href="/reviews">
+                                            Ver todas
+                                        </Link>
+                                    </Button>
+                                </div>
+
+                                {recentReviews.length === 0 ? (
+                                    <div className="mt-8 flex min-h-40 flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center">
+                                        <Star className="h-9 w-9 text-muted-foreground" />
+
+                                        <p className="mt-4 font-medium">
+                                            Ainda não recebeu avaliações
+                                        </p>
+
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            As avaliações feitas por outros
+                                            estudantes aparecerão aqui.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                        {recentReviews.map((review) => (
+                                            <div
+                                                key={review.id}
+                                                className="rounded-lg border p-4"
+                                            >
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <p className="font-medium">
+                                                        {
+                                                            review.reviewer
+                                                                .name
+                                                        }
                                                     </p>
-                                                </Link>
-                                            );
-                                        })}
+
+                                                    <div className="flex items-center gap-1 text-sm font-medium">
+                                                        <Star className="h-4 w-4" />
+                                                        {review.rating}/5
+                                                    </div>
+                                                </div>
+
+                                                {review.comment && (
+                                                    <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
+                                                        {review.comment}
+                                                    </p>
+                                                )}
+
+                                                <p className="mt-3 text-xs text-muted-foreground">
+                                                    {formatDate(
+                                                        review.created_at,
+                                                    )}
+                                                </p>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
                             </div>

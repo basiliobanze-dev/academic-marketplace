@@ -16,6 +16,7 @@ class Listing extends Model
         'category_id',
         'title',
         'description',
+        'image',
         'price',
         'transaction_type',
         'status'

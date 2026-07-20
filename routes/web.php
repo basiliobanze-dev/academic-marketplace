@@ -136,6 +136,11 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->group(functio
     Route::get('/reports', function () {
         return Inertia::render('admin/reports/index');
     })->name('admin.reports.index');
+
+    // CATEGORIES
+    Route::get('/categories', function () {
+        return Inertia::render('admin/categories/index');
+    })->name('admin.categories.index');
 });
 
 require __DIR__.'/settings.php';

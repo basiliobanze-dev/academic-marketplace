@@ -18,6 +18,8 @@ class ListingResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             'description' => $this->description,
+            'image' => $this->image,
+            'image_url' => $this->image ? asset('storage/' . $this->image): null,
             'price' => $this->price,
             'transaction_type' => $this->transaction_type,
             'status' => $this->status,

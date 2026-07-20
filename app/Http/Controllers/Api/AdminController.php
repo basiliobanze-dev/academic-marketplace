@@ -11,6 +11,7 @@ use App\Models\Report;
 use App\Models\User;
 use App\Services\UserNotificationService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -129,6 +130,13 @@ class AdminController extends Controller
             $ownerId = (int) $listing->user_id;
             $listingTitle = $listing->title;
 
+            if (
+                $listing->image &&
+                Storage::disk('public')->exists($listing->image)
+            ) {
+                Storage::disk('public')->delete($listing->image);
+            }
+
             $listing->delete();
 
             $notificationService->create(
@@ -144,7 +152,6 @@ class AdminController extends Controller
             'message' => 'Anúncio eliminado com sucesso.',
         ]);
     }
-
     /**
      * Lista denúncias com paginação.
      */

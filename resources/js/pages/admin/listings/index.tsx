@@ -9,6 +9,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { AxiosError } from 'axios';
 import {
     FileText,
+    FolderKanban,
     LoaderCircle,
     Search,
     Trash2,
@@ -193,17 +194,26 @@ export default function AdminListingsIndex() {
                         </p>
                     </div>
 
-                    <div className="relative w-full lg:max-w-sm">
-                        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        <div className="relative w-full sm:max-w-sm">
+                            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
-                        <input
-                            value={search}
-                            onChange={(event) =>
-                                setSearch(event.target.value)
-                            }
-                            placeholder="Pesquisar anúncio..."
-                            className="h-10 w-full rounded-md border border-input bg-background pr-3 pl-9 text-sm outline-none focus:ring-2 focus:ring-ring"
-                        />
+                            <input
+                                value={search}
+                                onChange={(event) =>
+                                    setSearch(event.target.value)
+                                }
+                                placeholder="Pesquisar anúncio..."
+                                className="h-10 w-full rounded-md border border-input bg-background pr-3 pl-9 text-sm outline-none focus:ring-2 focus:ring-ring"
+                            />
+                        </div>
+
+                        <Button variant="outline" asChild>
+                            <Link href="/admin/categories">
+                                <FolderKanban className="mr-2 h-4 w-4" />
+                                Categorias
+                            </Link>
+                        </Button>
                     </div>
                 </div>
 

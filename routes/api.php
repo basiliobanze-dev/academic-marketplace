@@ -197,6 +197,11 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     ])->whereNumber('user');
 
     // CATEGORIES
+    Route::get('/categories', [
+        CategoryController::class,
+        'index',
+    ]);
+
     Route::post('/categories', [
         CategoryController::class,
         'store',

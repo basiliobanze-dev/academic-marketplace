@@ -35,6 +35,13 @@ class StoreListingRequest extends FormRequest
                 'string',
             ],
 
+            'image' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:2048',
+            ],
+
             'price' => [
                 'nullable',
                 'required_if:transaction_type,sale',
@@ -57,6 +64,9 @@ class StoreListingRequest extends FormRequest
             'title.required' => 'Informe o título do anúncio.',
             'title.max' => 'O título não pode exceder 255 caracteres.',
             'description.required' => 'Informe a descrição do material.',
+            'image.image' => 'O ficheiro seleccionado deve ser uma imagem.',
+            'image.mimes' => 'A imagem deve estar no formato JPG, JPEG, PNG ou WEBP.',
+            'image.max' => 'A imagem não pode exceder 2 MB.',
             'price.required_if' => 'Informe o preço do material.',
             'price.numeric' => 'O preço deve ser um número válido.',
             'price.min' => 'O preço não pode ser negativo.',

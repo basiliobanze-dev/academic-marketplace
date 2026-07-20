@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { BookOpen, User } from 'lucide-react';
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { ReactNode } from 'react';
 import { type SharedData } from '@/types';
 
@@ -15,6 +15,8 @@ export interface Listing {
     status: 'available' | 'sold' | 'exchanged';
     created_at: string;
     updated_at: string;
+    image?: string | null;
+    image_url?: string | null;
 
     user?: {
         id: number;
@@ -64,6 +66,7 @@ function getStatusLabel(status: Listing['status']) {
 export default function ListingCard({ listing, actions }: ListingCardProps) {
     const { auth } = usePage<SharedData>().props;
     const isAdmin = auth.user?.role === 'admin';
+    const isAuthenticated = Boolean(auth.user);
 
     const description =
         listing.description.length > 130
@@ -72,9 +75,19 @@ export default function ListingCard({ listing, actions }: ListingCardProps) {
 
     return (
         <Card className="flex h-full flex-col overflow-hidden transition duration-200 hover:-translate-y-1 hover:shadow-lg">
-            <div className="flex h-44 items-center justify-center bg-gradient-to-br from-primary/10 via-white to-secondary/20">
-                <BookOpen className="h-16 w-16 text-primary/70" />
-            </div>
+            {listing.image_url ? (
+                <div className="h-44 w-full overflow-hidden bg-muted">
+                    <img
+                        src={listing.image_url}
+                        alt={listing.title}
+                        className="h-full w-full object-cover"
+                    />
+                </div>
+            ) : (
+                <div className="flex h-44 items-center justify-center bg-gradient-to-br from-primary/10 via-white to-secondary/20">
+                    <BookOpen className="h-16 w-16 text-primary/70" />
+                </div>
+            )}
 
             <CardHeader className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -121,7 +134,19 @@ export default function ListingCard({ listing, actions }: ListingCardProps) {
             <CardFooter className="flex flex-col gap-2">
                 {!isAdmin && (
                     <Button className="w-full" variant="outline" asChild>
-                        <Link href={`/listings/${listing.id}`}>
+                        <Link
+                            href={
+                                isAuthenticated
+                                    ? `/listings/${listing.id}`
+                                    : '/login'
+                            }
+                            onClick={(event) => {
+                                if (!isAuthenticated) {
+                                    event.preventDefault();
+                                    router.visit('/login');
+                                }
+                            }}
+                        >
                             Ver detalhes
                         </Link>
                     </Button>

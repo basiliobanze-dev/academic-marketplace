@@ -8,13 +8,16 @@ import {
     ArrowLeft,
     CircleDollarSign,
     FileText,
+    ImagePlus,
     LoaderCircle,
     PackagePlus,
     RefreshCcw,
     Save,
     Tag,
+    X,
 } from 'lucide-react';
 import {
+    type ChangeEvent,
     type FormEvent,
     useEffect,
     useMemo,
@@ -83,6 +86,10 @@ export default function CreateListing() {
     const [loadingCategories, setLoadingCategories] =
         useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [image, setImage] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<
+        string | null
+    >(null);
 
     const titleCharacters = form.title.length;
     const descriptionCharacters = form.description.length;
@@ -99,6 +106,14 @@ export default function CreateListing() {
     useEffect(() => {
         void loadCategories();
     }, []);
+
+    useEffect(() => {
+        return () => {
+            if (imagePreview) {
+                URL.revokeObjectURL(imagePreview);
+            }
+        };
+    }, [imagePreview]);
 
     async function loadCategories() {
         try {
@@ -133,6 +148,35 @@ export default function CreateListing() {
         }));
 
         setGeneralError('');
+    }
+
+    function handleImageChange(
+        event: ChangeEvent<HTMLInputElement>,
+    ) {
+        const file = event.target.files?.[0] ?? null;
+
+        setImagePreview((current) => {
+            if (current) {
+                URL.revokeObjectURL(current);
+            }
+
+            return file ? URL.createObjectURL(file) : null;
+        });
+
+        setImage(file);
+        event.target.value = '';
+    }
+
+    function removeImage() {
+        setImagePreview((current) => {
+            if (current) {
+                URL.revokeObjectURL(current);
+            }
+
+            return null;
+        });
+
+        setImage(null);
     }
 
     function changeTransactionType(
@@ -217,15 +261,37 @@ export default function CreateListing() {
 
             await api.get('/sanctum/csrf-cookie');
 
-            await api.post('/api/listings', {
-                category_id: Number(form.category_id),
-                title: form.title.trim(),
-                description: form.description.trim(),
-                transaction_type: form.transaction_type,
-                price:
-                    form.transaction_type === 'sale'
-                        ? Number(form.price)
-                        : null,
+            const payload = new FormData();
+
+            payload.append(
+                'category_id',
+                String(Number(form.category_id)),
+            );
+            payload.append('title', form.title.trim());
+            payload.append(
+                'description',
+                form.description.trim(),
+            );
+            payload.append(
+                'transaction_type',
+                form.transaction_type,
+            );
+
+            if (form.transaction_type === 'sale') {
+                payload.append(
+                    'price',
+                    String(Number(form.price)),
+                );
+            }
+
+            if (image) {
+                payload.append('image', image);
+            }
+
+            await api.post('/api/listings', payload, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
             });
 
             router.visit('/my-listings');
@@ -269,6 +335,7 @@ export default function CreateListing() {
         setForm(initialForm);
         setErrors({});
         setGeneralError('');
+        removeImage();
     }
 
     function firstError(field: keyof ValidationErrors) {
@@ -327,7 +394,7 @@ export default function CreateListing() {
                                     </h2>
 
                                     <p className="text-sm text-muted-foreground">
-                                        Apresente o material de forma
+                                        Cadastre o material de forma
                                         clara.
                                     </p>
                                 </div>
@@ -465,6 +532,49 @@ export default function CreateListing() {
                                         message={firstError(
                                             'category_id',
                                         )}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="mb-2 block text-sm font-medium">
+                                        Imagem do material
+                                    </label>
+
+                                    {imagePreview ? (
+                                        <div className="relative w-fit">
+                                            <img
+                                                src={imagePreview}
+                                                alt="Pré-visualização do material"
+                                                className="h-40 w-40 rounded-lg border object-cover"
+                                            />
+
+                                            <button
+                                                type="button"
+                                                disabled={submitting}
+                                                onClick={removeImage}
+                                                className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full border bg-background text-muted-foreground hover:text-destructive"
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <label
+                                            htmlFor="image"
+                                            className="flex h-32 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed text-sm text-muted-foreground hover:bg-muted/50"
+                                        >
+                                            <ImagePlus className="h-6 w-6" />
+                                            Clique para carregar uma
+                                            imagem
+                                        </label>
+                                    )}
+
+                                    <input
+                                        id="image"
+                                        type="file"
+                                        accept="image/*"
+                                        disabled={submitting}
+                                        onChange={handleImageChange}
+                                        className="hidden"
                                     />
                                 </div>
                             </div>

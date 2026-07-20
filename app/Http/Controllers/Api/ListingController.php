@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use App\Http\Requests\StoreListingRequest;
 use App\Http\Requests\UpdateListingRequest;
 use App\Http\Resources\ListingResource;
@@ -43,15 +45,23 @@ class ListingController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreListingRequest $request)
-    {
+    public function store(StoreListingRequest $request): JsonResponse {
         $validated = $request->validated();
+
+        $imagePath = null;
+
+        if ($request->hasFile('image')) {
+            $imagePath = $request
+                ->file('image')
+                ->store('listings', 'public');
+        }
 
         $listing = Listing::create([
             'user_id' => $request->user()->id,
             'category_id' => $validated['category_id'],
             'title' => $validated['title'],
             'description' => $validated['description'],
+            'image' => $imagePath,
             'price' => $validated['transaction_type'] === 'sale'
                 ? $validated['price']
                 : null,
@@ -65,7 +75,7 @@ class ListingController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Listing created successfully.',
+            'message' => 'Anúncio criado com sucesso.',
             'listing' => new ListingResource($listing),
         ], 201);
     }
@@ -84,35 +94,73 @@ class ListingController extends Controller
      */
     public function update(UpdateListingRequest $request, Listing $listing)
     {
-        if ($request->user()->id !== $listing->user_id){
+        if ($request->user()->id !== $listing->user_id) {
             return response()->json([
-                'message' => 'Unauthorized.'
+                'message' => 'Unauthorized.',
             ], 403);
         }
 
-        $listing->update($request->validated());
+        $validated = $request->validated();
+
+        if ($request->hasFile('image')) {
+            if (
+                $listing->image &&
+                Storage::disk('public')->exists($listing->image)
+            ) {
+                Storage::disk('public')->delete($listing->image);
+            }
+
+            $validated['image'] = $request
+                ->file('image')
+                ->store('listings', 'public');
+        } elseif ($request->boolean('remove_image')) {
+            if (
+                $listing->image &&
+                Storage::disk('public')->exists($listing->image)
+            ) {
+                Storage::disk('public')->delete($listing->image);
+            }
+
+            $validated['image'] = null;
+        }
+
+        $listing->update($validated);
+
+        $listing->load(['user', 'category']);
 
         return response()->json([
             'message' => 'Listing updated successfully.',
-            'listing' => new ListingResource($listing)
+            'listing' => new ListingResource($listing),
         ]);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Request $request, Listing $listing)
-    {
-        if ($request->user()->id !== $listing->user_id){
+    public function destroy(
+        Request $request,
+        Listing $listing
+    ): JsonResponse {
+        if (
+            (int) $request->user()->id !==
+            (int) $listing->user_id
+        ) {
             return response()->json([
-                'message' => 'Unauthorized.'
+                'message' => 'Não autorizado.',
             ], 403);
+        }
+
+        if (
+            $listing->image &&
+            Storage::disk('public')->exists($listing->image)
+        ) {
+            Storage::disk('public')->delete($listing->image);
         }
 
         $listing->delete();
 
         return response()->json([
-            'message' => 'Listing deleted successfully.'
+            'message' => 'Anúncio eliminado com sucesso.',
         ]);
     }
 

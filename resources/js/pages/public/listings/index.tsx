@@ -248,9 +248,8 @@ export default function ListingsIndex() {
                                 </h1>
 
                                 <p className="mt-4 max-w-2xl leading-7 text-muted-foreground">
-                                    Pesquise livros, apontamentos, exames
-                                    anteriores, exercícios e outros materiais
-                                    publicados pelos estudantes.
+                                    Pesquise materiais académicos das diferentes áreas de formação, 
+                                    disponíveis para compra ou troca entre estudantes.
                                 </p>
                             </div>
                         </div>

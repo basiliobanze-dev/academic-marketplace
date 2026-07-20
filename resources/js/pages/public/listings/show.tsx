@@ -56,6 +56,8 @@ interface Listing {
     status: 'available' | 'sold' | 'exchanged';
     created_at: string;
     updated_at: string;
+    image?: string | null;
+    image_url?: string | null;
     user?: ListingUser | null;
     category?: ListingCategory | null;
 }
@@ -255,9 +257,19 @@ export default function ListingShow() {
                         <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
                             <div className="space-y-6">
                                 <Card className="overflow-hidden">
-                                    <div className="flex min-h-72 items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/20">
-                                        <BookOpen className="h-28 w-28 text-primary/60" />
-                                    </div>
+                                    {listing.image_url ? (
+                                        <div className="min-h-72 w-full overflow-hidden bg-muted">
+                                            <img
+                                                src={listing.image_url}
+                                                alt={listing.title}
+                                                className="h-72 w-full object-cover"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="flex min-h-72 items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/20">
+                                            <BookOpen className="h-28 w-28 text-primary/60" />
+                                        </div>
+                                    )}
 
                                     <CardHeader>
                                         <div className="flex flex-wrap gap-2">

@@ -12,8 +12,9 @@ import StudentLayout from '@/layouts/student-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { AxiosError } from 'axios';
-import { LoaderCircle } from 'lucide-react';
+import { ImagePlus, LoaderCircle, X } from 'lucide-react';
 import {
+    type ChangeEvent,
     type FormEvent,
     useEffect,
     useState,
@@ -65,6 +66,13 @@ export default function EditListing({
         status: 'available',
     });
 
+    const [image, setImage] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<
+        string | null
+    >(null);
+    const [removeExistingImage, setRemoveExistingImage] =
+        useState(false);
+
     useEffect(() => {
         async function loadPageData() {
             try {
@@ -98,6 +106,9 @@ export default function EditListing({
                         listing.transaction_type ?? 'sale',
                     status: listing.status ?? 'available',
                 });
+
+                setImagePreview(listing.image_url ?? null);
+                setRemoveExistingImage(false);
             } catch {
                 setGeneralError(
                     'Não foi possível carregar os dados do anúncio.',
@@ -129,6 +140,37 @@ export default function EditListing({
         }));
     }
 
+    function handleImageChange(
+        event: ChangeEvent<HTMLInputElement>,
+    ) {
+        const file = event.target.files?.[0] ?? null;
+
+        setImagePreview((current) => {
+            if (current?.startsWith('blob:')) {
+                URL.revokeObjectURL(current);
+            }
+
+            return file ? URL.createObjectURL(file) : current;
+        });
+
+        setImage(file);
+        setRemoveExistingImage(false);
+        event.target.value = '';
+    }
+
+    function removeImage() {
+        setImagePreview((current) => {
+            if (current?.startsWith('blob:')) {
+                URL.revokeObjectURL(current);
+            }
+
+            return null;
+        });
+
+        setImage(null);
+        setRemoveExistingImage(true);
+    }
+
     async function handleSubmit(
         event: FormEvent<HTMLFormElement>,
     ) {
@@ -141,18 +183,44 @@ export default function EditListing({
         try {
             await api.get('/sanctum/csrf-cookie');
 
-            await api.put(`/api/listings/${listingId}`, {
-                category_id: Number(form.category_id),
-                title: form.title,
-                description: form.description,
-                price:
-                    form.transaction_type === 'exchange' ||
-                    form.price === ''
-                        ? null
-                        : Number(form.price),
-                transaction_type: form.transaction_type,
-                status: form.status,
-            });
+            const payload = new FormData();
+
+            payload.append('_method', 'PUT');
+            payload.append(
+                'category_id',
+                String(Number(form.category_id)),
+            );
+            payload.append('title', form.title);
+            payload.append('description', form.description);
+
+            const price =
+                form.transaction_type === 'exchange' ||
+                form.price === ''
+                    ? ''
+                    : String(Number(form.price));
+
+            payload.append('price', price);
+            payload.append(
+                'transaction_type',
+                form.transaction_type,
+            );
+            payload.append('status', form.status);
+
+            if (image) {
+                payload.append('image', image);
+            } else if (removeExistingImage) {
+                payload.append('remove_image', '1');
+            }
+
+            await api.post(
+                `/api/listings/${listingId}`,
+                payload,
+                {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                },
+            );
 
             router.visit('/my-listings');
         } catch (error) {
@@ -244,6 +312,61 @@ export default function EditListing({
                                     {errors.title?.[0] && (
                                         <p className="text-sm text-destructive">
                                             {errors.title[0]}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>
+                                        Imagem do material
+                                    </Label>
+
+                                    {imagePreview ? (
+                                        <div className="relative w-fit">
+                                            <img
+                                                src={imagePreview}
+                                                alt="Pré-visualização do material"
+                                                className="h-40 w-40 rounded-lg border object-cover"
+                                            />
+
+                                            <button
+                                                type="button"
+                                                disabled={
+                                                    submitting
+                                                }
+                                                onClick={
+                                                    removeImage
+                                                }
+                                                className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full border bg-background text-muted-foreground hover:text-destructive"
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <label
+                                            htmlFor="image"
+                                            className="flex h-32 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed text-sm text-muted-foreground hover:bg-muted/50"
+                                        >
+                                            <ImagePlus className="h-6 w-6" />
+                                            Clique para carregar uma
+                                            imagem
+                                        </label>
+                                    )}
+
+                                    <input
+                                        id="image"
+                                        type="file"
+                                        accept="image/*"
+                                        disabled={submitting}
+                                        onChange={
+                                            handleImageChange
+                                        }
+                                        className="hidden"
+                                    />
+
+                                    {errors.image?.[0] && (
+                                        <p className="text-sm text-destructive">
+                                            {errors.image[0]}
                                         </p>
                                     )}
                                 </div>
